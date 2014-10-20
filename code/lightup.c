@@ -348,6 +348,28 @@ unsigned int puzzle_count(const lu_puzzle *p, lu_square tp) {
 }
 
 
+void puzzle_count_1_2_3_wall_and_empty(const lu_puzzle *p,
+        unsigned int * wall_number, unsigned int * empty_number) {
+    unsigned int i, count_wall = 0, count_empty = 0;
+
+        if (p == NULL) {
+        return;
+    }
+
+    #pragma omp parallel for reduction(+:count_empty,count_wall)
+    for (i = 0; i < p->width * p->height; ++i) 
+    {
+        count_empty += p->data[i] == lusq_empty;
+        count_wall += (lusq_1 <= p->data[i]) && (p->data[i] <= lusq_3);
+
+    }
+
+    *wall_number=count_wall;
+    *empty_number=count_empty;
+}
+
+
+
 unsigned int puzzle_check(const lu_puzzle *ref, lu_puzzle *sol) {
 
    if (sol == NULL) {

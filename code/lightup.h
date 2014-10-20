@@ -26,6 +26,8 @@ typedef unsigned char lu_square;
 #define   lusq_lbulb 7
 /** case illuminée */
 #define   lusq_enlighted 8
+/** case vide mais impossible à remplir */
+#define   lusq_impossible 9
 
 /* on aurait pu faire ça avec un 'enum' mais ça aurait stocké un int au
  * lieu d'un simple char... */
@@ -155,6 +157,12 @@ void puzzle_lights_off(lu_puzzle *p);
  * \return Le nombre de cases du type \p tp dans \p p.
  */
 unsigned int puzzle_count(const lu_puzzle *p, lu_square tp);
+
+/*!
+ * Compte le nombre de mur 1/2/3 et de case vide
+ */
+void puzzle_count_1_2_3_wall_and_empty(const lu_puzzle *p,
+        unsigned int * wall_number, unsigned int * empty_number);
 
 /*!
  * Vérifie que la solution d'un puzzle est valide. Teste si la structure du
