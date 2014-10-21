@@ -181,13 +181,12 @@ static __inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
 }
 
 
-static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
+static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned int * nb_e)
 {
     unsigned int c = 0,
                  l = 0,
                  count = 0,
                  current_state = 0,
-                 nb_e_local = 0,
                  index = 0;
 
     unsigned char change = 0;
@@ -195,9 +194,9 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
     unsigned int width = p->width;
     unsigned int height = p->height;
 
-    //puzzle_count_1_2_3_wall_and_empty(p,&nb_nw_local, &nb_e_local);//FIXME remove?
-    position * positions_local = (position*)malloc(sizeof(*positions_local) * nb_e_local);
-    //memset(positions_local, 0, sizeof(*positions_local) * nb_e_local);
+    
+    position_array pa_empty = new_position_array();
+    position_array pa_impossible = new_position_array();
 
     position_array pa_center = new_position_array();
     position_array pa_left_border = new_position_array_with_size(height);
@@ -259,15 +258,24 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         current_state = p->data[0];
         if(current_state == lusq_0)
         {
-            if(p->data[1] == lusq_empty) p->data[1] = lusq_impossible;
-            if(p->data[width] == lusq_empty) p->data[width] = lusq_impossible;
-            change = 1;
+            if(p->data[1] == lusq_empty)
+            {
+                p->data[1] = lusq_impossible;
+                change = 1;
+            }
+            if(p->data[width] == lusq_empty)
+            {
+                p->data[width] = lusq_impossible;
+                change = 1;
+            }
         }
         else if(current_state <= lusq_2)
         {
-            count = 2 +
+            count =
                 (p->data[1] == lusq_empty) +
-                (p->data[width] == lusq_empty);
+                (p->data[width] == lusq_empty) +
+                (p->data[1] == lusq_lbulb) +
+                (p->data[width] == lusq_lbulb);
             if(count == current_state)
             {
                 if(p->data[1] == lusq_empty) puzzle_light_on(p,1,0);
@@ -279,15 +287,24 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         current_state = p->data[width-1];
         if(current_state == lusq_0)
         {
-            if(p->data[width-2] == lusq_empty) p->data[width-2] = lusq_impossible;
-            if(p->data[2*width - 1] == lusq_empty) p->data[2*width - 1] = lusq_impossible;
-            change = 1;
+            if(p->data[width-2] == lusq_empty)
+            {
+                p->data[width-2] = lusq_impossible;
+                change = 1;
+            }
+            if(p->data[2*width - 1] == lusq_empty)
+            {
+                p->data[2*width - 1] = lusq_impossible;
+                change = 1;
+            }
         }
         else if(current_state <= lusq_2)
         {
-            count = 2 +
+            count =
                 (p->data[width-2] == lusq_empty) +
-                (p->data[2*width - 1] == lusq_empty);
+                (p->data[2*width - 1] == lusq_empty) +
+                (p->data[width-2] == lusq_lbulb) +
+                (p->data[2*width - 1] == lusq_lbulb);
             if(count == current_state)
             {
                 if(p->data[width-2] == lusq_empty) puzzle_light_on(p,width-2,0);
@@ -299,15 +316,24 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         current_state = p->data[width*(height-1)];
         if(current_state == lusq_0)
         {
-            if(p->data[width*(height-2)] == lusq_empty) p->data[width*(height-2)] = lusq_impossible;
-            if(p->data[width*(height-1) + 1] == lusq_empty) p->data[width*(height-1) + 1] = lusq_impossible;
-            change = 1;
+            if(p->data[width*(height-2)] == lusq_empty)
+            {
+                p->data[width*(height-2)] = lusq_impossible;
+                change = 1;
+            }
+            if(p->data[width*(height-1) + 1] == lusq_empty)
+            {
+                p->data[width*(height-1) + 1] = lusq_impossible;
+                change = 1;
+            }
         }
         else if(current_state <= lusq_2)
         {
-            count = 2 +
+            count =
                 (p->data[width*(height-2)] == lusq_empty) +
-                (p->data[width*(height-1) + 1] == lusq_empty);
+                (p->data[width*(height-1) + 1] == lusq_empty) +
+                (p->data[width*(height-2)] == lusq_lbulb) +
+                (p->data[width*(height-1) + 1] == lusq_lbulb);
             if(count == current_state)
             {
                 if(p->data[width*(height-2)] == lusq_empty) puzzle_light_on(p,0,height-2);
@@ -317,17 +343,26 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         }
         //Coin bas droit
         current_state = p->data[width*height - 1];
-        if(current_state == lusq_2)
+        if(current_state == lusq_0)
         {
-            if(p->data[width*height - 2] == lusq_empty) p->data[width*height - 2] = lusq_impossible;
-            if(p->data[width*(height-1) - 1] == lusq_empty) p->data[width*(height-1) - 1] = lusq_impossible;
-            change = 1;
+            if(p->data[width*height - 2] == lusq_empty)
+            {
+                p->data[width*height - 2] = lusq_impossible;
+                change = 1;
+            }
+            if(p->data[width*(height-1) - 1] == lusq_empty)
+            {
+                p->data[width*(height-1) - 1] = lusq_impossible;
+                change = 1;
+            }
         }
         else if(current_state <= lusq_2)
         {
-            count = 2 +
+            count =
                 (p->data[width*height - 2] == lusq_empty) +
-                (p->data[width*(height-1) - 1] == lusq_empty);
+                (p->data[width*(height-1) - 1] == lusq_empty) +
+                (p->data[width*height - 2] == lusq_lbulb) +
+                (p->data[width*(height-1) - 1] == lusq_lbulb);
             if(count == current_state)
             {
                 if(p->data[width*height - 2] == lusq_empty) puzzle_light_on(p,width-2,height-1);
@@ -342,19 +377,23 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         {
             l = pa_left_border.array[index].line;
             current_state = p->data[l * width];
-            if(current_state == lusq_0)
+            if(current_state == lusq_0 || wall_saturated(p,0,l))
             {
                 if(p->data[(l-1) * width] == lusq_empty) p->data[(l-1) * width] = lusq_impossible;
                 if(p->data[(l+1) * width] == lusq_empty) p->data[(l+1) * width] = lusq_impossible;
                 if(p->data[l * width + 1] == lusq_empty) p->data[l * width + 1] = lusq_impossible;
+                remove_from_position_array(&pa_left_border,index);
                 change = 1;
             }
             else if(current_state <= lusq_3)
             {
-                count = 1 +
+                count =
                     (p->data[(l-1) * width] == lusq_empty) +
                     (p->data[(l+1) * width] == lusq_empty) +
-                    (p->data[l * width + 1] == lusq_empty);
+                    (p->data[l * width + 1] == lusq_empty) +
+                    (p->data[(l-1) * width] == lusq_lbulb) +
+                    (p->data[(l+1) * width] == lusq_lbulb) +
+                    (p->data[l * width + 1] == lusq_lbulb);
                 if(count == current_state)
                 {
                     if(p->data[(l-1) * width] == lusq_empty) puzzle_light_on(p,0,l-1);
@@ -370,19 +409,23 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         {
             l = pa_right_border.array[index].line;
             current_state = p->data[l * width + width -1];
-            if(current_state == lusq_0)
+            if(current_state == lusq_0 || wall_saturated(p,width-1,l))
             {
                 if(p->data[(l-1) * width + width-1] == lusq_empty) p->data[(l-1) * width + width-1] = lusq_impossible;
                 if(p->data[(l+1) * width + width-1] == lusq_empty) p->data[(l+1) * width + width-1] = lusq_impossible;
                 if(p->data[l * width + width-2] == lusq_empty) p->data[l * width + width-2] = lusq_impossible;
+                remove_from_position_array(&pa_right_border,index);
                 change = 1;
             }
             else if(current_state <= lusq_3)
             {
-                count = 1 +
+                count =
                     (p->data[(l-1) * width + width-1] == lusq_empty) +
                     (p->data[(l+1) * width + width-1] == lusq_empty) +
-                    (p->data[l * width + width-2] == lusq_empty);
+                    (p->data[l * width + width-2] == lusq_empty) +
+                    (p->data[(l-1) * width + width-1] == lusq_lbulb) +
+                    (p->data[(l+1) * width + width-1] == lusq_lbulb) +
+                    (p->data[l * width + width-2] == lusq_lbulb);
                 if(count == current_state)
                 {
                     if(p->data[(l-1) * width + width-1] == lusq_empty) puzzle_light_on(p,width-1,l-1);
@@ -399,19 +442,23 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         {
             c = pa_top_border.array[index].column;
             current_state = p->data[c];
-            if(current_state == lusq_0)
+            if(current_state == lusq_0 || wall_saturated(p,c,0))
             {
                 if(p->data[c-1] == lusq_empty) p->data[c-1] = lusq_impossible;
                 if(p->data[c+1] == lusq_empty) p->data[c+1] = lusq_impossible;
                 if(p->data[width + c] == lusq_empty) p->data[width + c] = lusq_impossible;
+                remove_from_position_array(&pa_top_border,index);
                 change = 1;
             }
             else if(current_state <= lusq_3)
             {
-                count = 1 +
+                count =
                     (p->data[c-1] == lusq_empty) +
                     (p->data[c+1] == lusq_empty) +
-                    (p->data[width + c] == lusq_empty);
+                    (p->data[width + c] == lusq_empty) +
+                    (p->data[c-1] == lusq_lbulb) +
+                    (p->data[c+1] == lusq_lbulb) +
+                    (p->data[width + c] == lusq_lbulb);
                 if(count == current_state)
                 {
                     if(p->data[c-1] == lusq_empty) puzzle_light_on(p,c-1,0);
@@ -425,21 +472,25 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         }
         for (index = 0; index < pa_bottom_border.size ; ++index)
         {
-            c = pa_top_border.array[index].column;
+            c = pa_bottom_border.array[index].column;
             current_state = p->data[(height-1)*width + c];
-            if(current_state == lusq_0)
+            if(current_state == lusq_0 || wall_saturated(p,c,height-1))
             {
                 if(p->data[(height-1)*width + c-1] == lusq_empty) p->data[(height-1)*width + c-1] = lusq_impossible;
                 if(p->data[(height-1)*width + c+1] == lusq_empty) p->data[(height-1)*width + c+1] = lusq_impossible;
                 if(p->data[(height-2)*width + c] == lusq_empty) p->data[(height-2)*width +  + c] = lusq_impossible;
+                remove_from_position_array(&pa_bottom_border,index);
                 change = 1;
             }
             else if(current_state <= lusq_3)
             {
-                count = 1 +
+                count =
                     (p->data[(height-1)*width + c-1] == lusq_empty) +
                     (p->data[(height-1)*width + c+1] == lusq_empty) +
-                    (p->data[(height-2)*width + c] == lusq_empty);
+                    (p->data[(height-2)*width + c] == lusq_empty) +
+                    (p->data[(height-1)*width + c-1] == lusq_lbulb) +
+                    (p->data[(height-1)*width + c+1] == lusq_lbulb) +
+                    (p->data[(height-2)*width + c] == lusq_lbulb);
                 if(count == current_state)
                 {
                     if(p->data[(height-1)*width + c-1] == lusq_empty) puzzle_light_on(p,c-1,height-1);
@@ -453,17 +504,18 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
         }
 
         //INTERIEUR SANS BORD NI COINS
-        for (index = 0; index < pa_top_border.size ; ++index)
+        for (index = 0; index < pa_center.size ; ++index)
         {
             l = pa_center.array[index].line;
             c = pa_center.array[index].column;
             current_state = p->data[l * width + c];
-            if(current_state == lusq_0)
+            if(current_state == lusq_0 || wall_saturated(p,c,l))
             {
                 if(p->data[(l-1) * width + c] == lusq_empty) p->data[(l-1) * width + c] = lusq_impossible;
                 if(p->data[(l+1) * width + c] == lusq_empty) p->data[(l+1) * width + c] = lusq_impossible;
                 if(p->data[l * width + c - 1] == lusq_empty) p->data[l * width + c - 1] = lusq_impossible;
                 if(p->data[l * width + c + 1] == lusq_empty) p->data[l * width + c + 1] = lusq_impossible;
+                remove_from_position_array(&pa_center,index);
                 change = 1;
             }
             else if(current_state <= lusq_4)
@@ -472,7 +524,11 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
                     (p->data[(l-1) * width + c] == lusq_empty) +
                     (p->data[(l+1) * width + c] == lusq_empty) +
                     (p->data[l * width + c - 1] == lusq_empty) +
-                    (p->data[l * width + c + 1] == lusq_empty);
+                    (p->data[l * width + c + 1] == lusq_empty) +
+                    (p->data[(l-1) * width + c] == lusq_lbulb) +
+                    (p->data[(l+1) * width + c] == lusq_lbulb) +
+                    (p->data[l * width + c - 1] == lusq_lbulb) +
+                    (p->data[l * width + c + 1] == lusq_lbulb);
                 if(count == current_state)
                 {
                     if(p->data[(l-1) * width + c] == lusq_empty) puzzle_light_on(p,c,l-1);
@@ -485,10 +541,75 @@ static void pre_solve(lu_puzzle *p, position ** positions, unsigned int *nb_e)
                 }
             }
         }
+        //puzzle_print(p);
     }
 
-    *positions = positions_local;
-    *nb_e=nb_e_local;
+    unsigned index_empty = 0, index_impossible = 0;
+    for (l = 0; l < p->height; ++l)
+    {
+        for (c = 0; c < p->width; ++c)
+        {
+            pa_empty.array[index_empty] = (position){l,c};
+            pa_impossible.array[index_impossible] = (position){l,c};
+            index_empty += (p->data[l * width + c] == lusq_empty);
+            index_impossible +=(p->data[l * width + c] == lusq_impossible);
+        }
+    }
+    pa_empty.size = index_empty;
+    pa_impossible.size = index_impossible;
+
+/*    
+    change = 1;
+    while(change != 0)
+    {
+        change = 0;
+
+        //Essaye de remplir les case vide nécessaire pour éclairé des cases impossibles inéclairable sinon
+        position lb_pos = {0,0};
+        for(index = 0; index < pa_impossible.size ; index++)
+        {
+            l = pa_impossible.array[index].line;
+            c = pa_impossible.array[index].column;
+    
+            if(p->data[l * width + c] != lusq_impossible)
+            {
+                remove_from_position_array(&pa_impossible, index);
+                index--;
+            }
+            else if(number_of_lightbulb_possible(p, l, c, &lb_pos) == 1)
+            {
+                puzzle_light_on(p, lb_pos.column, lb_pos.line);
+                remove_from_position_array(&pa_impossible, index);
+                index--;
+                change = 1;
+            }
+        }
+        //Essaye de remplir les cases vides qui doivent s'éclairer eux même (lorsqu'aucune case n'est libre autour d'eux pour l'éclairer).
+        for(index = 0; index < pa_empty.size ; index++)
+        {
+            l = pa_empty.array[index].line;
+            c = pa_empty.array[index].column;
+    
+            if(p->data[l * width + c] != lusq_empty)
+            {
+                remove_from_position_array(&pa_empty, index);
+                index--;
+            }
+            else if(is_alone(p, l, c) == 1)
+            {
+                puzzle_light_on(p, pa_empty.array[index].column, pa_empty.array[index].line);
+                remove_from_position_array(&pa_empty, index);
+                index--;
+                change = 1;
+            }
+        }
+    }
+*/
+
+
+
+    *positions_empty = pa_empty;
+    *nb_e = pa_impossible.size + pa_empty.size;
 }
 
 /*!
@@ -563,7 +684,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                continue;
             }
 
-            if (p->data[i] != lusq_empty) {
+            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
                break;   // mur
             }
 
@@ -580,7 +701,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                continue;
             }
 
-            if (p->data[i] != lusq_empty) {
+            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
                break;   // mur
             }
 
@@ -597,7 +718,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                continue;
             }
 
-            if (p->data[i] != lusq_empty) {
+            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
                break; // mur
             }
 
@@ -614,7 +735,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                continue;
             }
 
-            if (p->data[i] != lusq_empty) {
+            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
                break; // mur
             }
 
@@ -738,9 +859,11 @@ int solver_main(int argc, char **argv) {
    unsigned int sol_id = 0;
 
    //FIXME
-   position * positions = NULL;
-   pre_solve(p, &positions, &nb_e);
+   position_array positions_empty;
+   pre_solve(p, &positions_empty,&nb_e);
+   puzzle_print(p);
    //FIXME
+   printf("Problem size after heuristic = %u\n", nb_e);
    solve(p, whbufs, nb_e, forbiden, &sol_id, fd);
    printf("Found %u solutions\n", sol_id);
 

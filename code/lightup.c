@@ -158,7 +158,7 @@ static char prettychar [] =
         ' ',
         '?',
         '.',
-        '_',
+        'X',
         '@',
         '_',
 };
@@ -259,12 +259,13 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
       fprintf(stderr, "Invalid coordinates %u %u\n", x, y);
       return;
    }
-
+/*
    if (p->data[y * p->width + x] != lusq_lbulb) {
       fprintf(stderr, "No light to turn on at %u %u\n", x, y);
       return;
    }
-
+*/
+   p->data[y * p->width + x] = lusq_lbulb;
    int width = p->width;
    int height = p->height;
 
@@ -276,7 +277,7 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
    for (x2 = x + 1; x2 < width; ++x2) {
       int i = y * width + x2;
 
-      if (p->data[i] != lusq_empty && p->data[i] != lusq_enlighted) {
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible && p->data[i] != lusq_enlighted) {
          break;   // mur
       }
 
@@ -286,7 +287,7 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
    for (x2 = (int) x - 1; x2 >= 0; --x2) {
       int i = y * width + x2;
 
-      if (p->data[i] != lusq_empty && p->data[i] != lusq_enlighted) {
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible && p->data[i] != lusq_enlighted) {
          break;   // mur
       }
 
@@ -296,7 +297,7 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
    for (y2 = y + 1; y2 < height; ++y2) {
       int i = y2 * width + x;
 
-      if (p->data[i] != lusq_empty && p->data[i] != lusq_enlighted) {
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible && p->data[i] != lusq_enlighted) {
          break;   // mur
       }
 
@@ -306,7 +307,7 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
    for (y2 = (int) y - 1; y2 >= 0; --y2) {
       int i = y2 * width + x;
 
-      if (p->data[i] != lusq_empty && p->data[i] != lusq_enlighted) {
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible && p->data[i] != lusq_enlighted) {
          break;   // mur
       }
 
