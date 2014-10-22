@@ -30,3 +30,4 @@
 code/code
 
 *.tar.*
+.*.swp
