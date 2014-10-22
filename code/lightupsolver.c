@@ -576,7 +576,7 @@ static char empty_and_impossible_heuristic(lu_puzzle * p, position_array * pa_em
         {
             if(p->data[l * width + c] == lusq_impossible)
             {
-                add_to_position_array(&pa_local_impossible, (position){l,c});
+                add_to_position_array(&pa_local_impossible, pa_local_empty.array[index]);
                 change = 1;
             }
             remove_from_position_array(&pa_local_empty, index);
@@ -719,6 +719,96 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
 
     *positions_empty = pa_empty;
     *nb_e = pa_impossible.size + pa_empty.size;
+}
+
+static void print_class(position_array* pa_array, unsigned int pa_array_size)
+{
+    unsigned int index_array, index;
+    for(index_array = 0 ; index_array < pa_array_size; index_array++)
+    {
+        for(index = 0; index < pa_array[index_array].size ; index++)
+        {
+            printf("(%u,%u) | ",pa_array[index_array].array[index].line ,pa_array[index_array].array[index].column);
+        }
+        printf(".\n");
+    }
+}
+
+
+static void classify_positions(lu_puzzle *p, position_array ** pa_array, unsigned int * pa_array_size, position_array pa_empty)
+{
+    position_array * pa_local_array = NULL;
+    unsigned int pa_local_array_size = 0;
+
+    unsigned int width = p->width;
+
+    unsigned int index_empty = 0, index_array = 0, index = 0;
+    unsigned char added = 0;
+    int step = 1;
+    unsigned c = 0, l = 0;
+
+    position_array pa;
+    position current_pos;
+
+    pa_local_array = (position_array*) malloc(sizeof(position_array) * pa_empty.size);
+
+    //TODO : Faire de l'innondation à la place
+    for(index_empty = 0; index_empty < pa_empty.size ; index_empty++)
+    {
+        current_pos = pa_empty.array[index_empty];
+        added = 0;
+
+        for(index_array = 0 ; (index_array < pa_local_array_size) && (added == 0) ; index_array++)
+        {
+            pa = pa_local_array[index_array];
+            for(index = 0 ; (index < pa.size) && (added == 0) ; index++)
+            {
+                if(pa.array[index].line == current_pos.line)
+                {
+                    step = (current_pos.column < pa.array[index].column) ? 1 : -1;
+                    c = current_pos.column + step;
+                    while(c != pa.array[index].column)
+                    {
+                        if(p->data[current_pos.line * width + c] <= lusq_block_any) break;
+                        c += step;
+                    }
+                    if(c == pa.array[index].column)
+                    {
+                        add_to_position_array(&pa_local_array[index_array],current_pos);
+                        added = 1;
+                    }
+                }
+                else if(pa.array[index].column == current_pos.column)
+                {
+                    step = (current_pos.line < pa.array[index].line) ? 1 : -1;
+                    l = current_pos.line + step;
+                    while(l != pa.array[index].line)
+                    {
+                        if(p->data[l * width + current_pos.column] <= lusq_block_any) break;
+                        l += step;
+                    }
+                    if(l == pa.array[index].line)
+                    {
+                        add_to_position_array(&pa_local_array[index_array],current_pos);
+                        added = 1;
+                    }
+                }
+            }
+        }
+
+        //S'il n'a pas été classé avant, c'est qu'il faut créer une autre classe pour cette élément
+        if(added == 0)
+        {
+            pa_local_array[pa_local_array_size] = new_position_array_with_size(pa_empty.size);
+            add_to_position_array(&pa_local_array[pa_local_array_size],current_pos);
+            pa_local_array_size++;
+        }
+    }
+
+    *pa_array = pa_local_array;
+    *pa_array_size = pa_local_array_size;
+
+    return;
 }
 
 /*!
@@ -977,6 +1067,14 @@ int solver_main(int argc, char **argv) {
    position_array positions_empty;
    pre_solve(p, &positions_empty,&nb_e);
    puzzle_print(p);
+
+   position_array *pa_array;
+   unsigned int pa_array_size;
+   classify_positions(p, &pa_array, &pa_array_size, positions_empty);
+   print_class(pa_array,pa_array_size);
+
+   return 0;
+
    //FIXME
    printf("Problem size after heuristic = %u\n", nb_e);
    solve(p, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
