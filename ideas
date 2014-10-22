@@ -1,4 +1,5 @@
 Découverte des murs avec un besoin en ampoule décroissant : essayer de placer les ampules d'abord sur leurs extremité,
 enlever les cases plus possible et continuer (algo glouton).
 
-
+solve : implémentation avec pile : les case allumé son mis au sommet de la pile et size est decrémenté (on "supprime" la case).
+→ Quand on revient de cette branche, on incrémente de N (nombre de case "supprimé"), et on les retrouves...
