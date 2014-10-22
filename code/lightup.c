@@ -171,22 +171,22 @@ void puzzle_print(const lu_puzzle *p) {
            return;
         }
 
-//        printf("  ");
-//        for (x = 0; x < p->width; ++x)
-//                printf("%d", x%10);
-//        putchar( '\n' );
+        printf("   ");
+        for (x = 0; x < p->width; ++x)
+                printf("%d", x%10);
+        putchar( '\n' );
 
         for (y = 0; y < p->height; ++y)
         {
-//                printf( "%02d", y );
+                printf( "%02d ", y );
                 for (x = 0; x < p->width; ++x)
                         putchar( prettychar[p->data[y * p->width + x]] );
                 putchar( '\n' );
         }
-//        printf("  ");
-//        for (x = 0; x < p->width; ++x)
-//                printf("%d", x%10);
-//        putchar( '\n' );
+        printf("   ");
+        for (x = 0; x < p->width; ++x)
+                printf("%d", x%10);
+        putchar( '\n' );
 
 }
 
