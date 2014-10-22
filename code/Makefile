@@ -4,7 +4,7 @@ LDFLAGS=-fopenmp
 
 .PHONY: all clean distclean
 
-all: release
+all: debug
 
 release: CFLAGS += -O3
 release: code
