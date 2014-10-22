@@ -1,10 +1,17 @@
 CC=gcc
-CFLAGS=-g -Wall -Wextra -fopenmp
-LDFLAGS=-g -fopenmp
+CFLAGS=-Wall -Wextra -fopenmp
+LDFLAGS=-fopenmp
 
 .PHONY: all clean distclean
 
-all: code
+all: release
+
+release: CFLAGS += -O3
+release: code
+
+
+debug: CFLAGS += -DDEBUG -g
+debug: code
 
 code: lightupsolver.o lightup.o utils.o
 	$(CC) $^ -o $@ $(LDFLAGS)
