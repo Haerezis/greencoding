@@ -533,7 +533,7 @@ static char wall_heuristic(lu_puzzle *p,
 }
 
 
-static char empty_heuristic(lu_puzzle * p, position_array * pa_empty, position_array * pa_impossible)
+static char empty_and_impossible_heuristic(lu_puzzle * p, position_array * pa_empty, position_array * pa_impossible)
 {
     unsigned int c = 0,
                  l = 0,
@@ -574,6 +574,11 @@ static char empty_heuristic(lu_puzzle * p, position_array * pa_empty, position_a
     
         if(p->data[l * width + c] != lusq_empty)
         {
+            if(p->data[l * width + c] == lusq_impossible)
+            {
+                add_to_position_array(&pa_local_impossible, (position){l,c});
+                change = 1;
+            }
             remove_from_position_array(&pa_local_empty, index);
             index--;
         }
@@ -691,7 +696,7 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
     {
         change = 0;
 
-        change += empty_heuristic(
+        change += empty_and_impossible_heuristic(
                 p, 
                 &pa_empty,
                 &pa_impossible);
