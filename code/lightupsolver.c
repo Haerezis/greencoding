@@ -740,15 +740,15 @@ static void classify_positions(lu_puzzle *p, position_array ** pa_array, unsigne
     position_array * pa_local_array = NULL;
     unsigned int pa_local_array_size = 0;
 
-    unsigned int width = p->width;
+    int width = p->width;
+    int height = p->height;
 
-    unsigned int index_empty = 0, index_array = 0, index = 0;
-    unsigned char added = 0;
-    int step = 1;
-    unsigned c = 0, l = 0;
+    unsigned int index_empty = 0;
+    int c = 0, l = 0;
 
-    position_array pa;
-    position current_pos;
+    position_array pa = {0,0,0};
+    position_array pa_flood = new_position_array_with_size(pa_empty.size);
+    position current_pos, flood_pos;
 
     pa_local_array = (position_array*) malloc(sizeof(position_array) * pa_empty.size);
 
@@ -756,53 +756,53 @@ static void classify_positions(lu_puzzle *p, position_array ** pa_array, unsigne
     for(index_empty = 0; index_empty < pa_empty.size ; index_empty++)
     {
         current_pos = pa_empty.array[index_empty];
-        added = 0;
+        if(p->data[current_pos.line*width + current_pos.column] == lusq_flood) continue;//Déjà ajouté à une classe
 
-        for(index_array = 0 ; (index_array < pa_local_array_size) && (added == 0) ; index_array++)
+        pa = new_position_array_with_size(pa_empty.size);//Taille regressive normalement //TODO
+        add_to_position_array(&pa_flood,current_pos);
+
+        while(pa_flood.size > 0)
         {
-            pa = pa_local_array[index_array];
-            for(index = 0 ; (index < pa.size) && (added == 0) ; index++)
+            flood_pos = pa_flood.array[pa_flood.size-1];
+            pa_flood.size--;
+            p->data[flood_pos.line*width + flood_pos.column] = lusq_flood;
+            add_to_position_array(&pa, flood_pos);
+            
+            c = flood_pos.column + 1;
+            while((c < width) && (p->data[flood_pos.line*width + c] == lusq_impossible || p->data[flood_pos.line*width + c] == lusq_enlighted)) c++;
+            if((c < width) && (p->data[flood_pos.line*width + c] == lusq_empty))
             {
-                if(pa.array[index].line == current_pos.line)
-                {
-                    step = (current_pos.column < pa.array[index].column) ? 1 : -1;
-                    c = current_pos.column + step;
-                    while(c != pa.array[index].column)
-                    {
-                        if(p->data[current_pos.line * width + c] <= lusq_block_any) break;
-                        c += step;
-                    }
-                    if(c == pa.array[index].column)
-                    {
-                        add_to_position_array(&pa_local_array[index_array],current_pos);
-                        added = 1;
-                    }
-                }
-                else if(pa.array[index].column == current_pos.column)
-                {
-                    step = (current_pos.line < pa.array[index].line) ? 1 : -1;
-                    l = current_pos.line + step;
-                    while(l != pa.array[index].line)
-                    {
-                        if(p->data[l * width + current_pos.column] <= lusq_block_any) break;
-                        l += step;
-                    }
-                    if(l == pa.array[index].line)
-                    {
-                        add_to_position_array(&pa_local_array[index_array],current_pos);
-                        added = 1;
-                    }
-                }
+                add_to_position_array(&pa_flood, (position){flood_pos.line,c});
+            }
+
+            c = flood_pos.column - 1;
+            while((c >= 0) && (p->data[flood_pos.line*width + c] == lusq_impossible || p->data[flood_pos.line*width + c] == lusq_enlighted)) c--;
+            if((c >= 0) && (p->data[flood_pos.line*width + c] == lusq_empty))
+            {
+                add_to_position_array(&pa_flood, (position){flood_pos.line,c});
+            }
+
+            l = flood_pos.line + 1;
+            while((l < height) && (p->data[l*width + flood_pos.column] == lusq_impossible || p->data[l*width + flood_pos.column] == lusq_enlighted)) l++;
+            if((l < height) && (p->data[l*width + flood_pos.column] == lusq_empty))
+            {
+                add_to_position_array(&pa_flood, (position){l,flood_pos.column});
+            }
+
+            l = flood_pos.line - 1;
+            while((l >= 0) && (p->data[l*width + flood_pos.column] == lusq_impossible || p->data[l*width + flood_pos.column] == lusq_enlighted)) l--;
+            if((l >= 0) && (p->data[l*width + flood_pos.column] == lusq_empty))
+            {
+                add_to_position_array(&pa_flood, (position){l,flood_pos.column});
             }
         }
+        pa_local_array[pa_local_array_size++] = pa;
+    }
 
-        //S'il n'a pas été classé avant, c'est qu'il faut créer une autre classe pour cette élément
-        if(added == 0)
-        {
-            pa_local_array[pa_local_array_size] = new_position_array_with_size(pa_empty.size);
-            add_to_position_array(&pa_local_array[pa_local_array_size],current_pos);
-            pa_local_array_size++;
-        }
+    for(index_empty = 0; index_empty < pa_empty.size ; index_empty++)
+    {
+        current_pos = pa_empty.array[index_empty];
+        p->data[current_pos.line*width + current_pos.column] = lusq_empty;
     }
 
     *pa_array = pa_local_array;
@@ -810,6 +810,7 @@ static void classify_positions(lu_puzzle *p, position_array ** pa_array, unsigne
 
     return;
 }
+
 
 /*!
  * Résoud un puzzle light-up de façon récursive.
@@ -1039,6 +1040,14 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
    release_wh_buf(whbufs);
 }
 
+
+static void solve_classes(lu_puzzle *p, position_array * pa_array, unsigned int pa_array_size, wh_bufs *whbufs, unsigned int nb_e,
+   unsigned int *forbiden, position_array * pa_empty, unsigned int *sol_id, FILE *fd) 
+{
+    //TODO : solve every classes
+    solve(p, whbufs, nb_e, forbiden, pa_empty, sol_id, fd); 
+}
+
 int solver_main(int argc, char **argv) {
    if (argc < 3) {
       printf("Solves a ligthup puzzle\n");
@@ -1072,12 +1081,10 @@ int solver_main(int argc, char **argv) {
    unsigned int pa_array_size;
    classify_positions(p, &pa_array, &pa_array_size, positions_empty);
    print_class(pa_array,pa_array_size);
-
-   return 0;
-
-   //FIXME
    printf("Problem size after heuristic = %u\n", nb_e);
-   solve(p, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
+   solve_classes(p, pa_array, pa_array_size, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
+  //FIXME
+//   solve(p, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
    printf("Found %u solutions\n", sol_id);
 
    free(forbiden);

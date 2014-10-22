@@ -28,6 +28,8 @@ typedef unsigned char lu_square;
 #define   lusq_enlighted 8
 /** case vide mais impossible à remplir */
 #define   lusq_impossible 9
+/** case vide innondé, utilisé dans lightupsolver **/
+#define   lusq_flood 10
 
 /* on aurait pu faire ça avec un 'enum' mais ça aurait stocké un int au
  * lieu d'un simple char... */
