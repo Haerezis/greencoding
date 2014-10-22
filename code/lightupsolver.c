@@ -598,7 +598,7 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
                  l = 0,
                  index = 0;
 
-    unsigned char change = 0;
+    unsigned int change = 0;
     
     unsigned int width = p->width;
     unsigned int height = p->height;
@@ -691,7 +691,7 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
     {
         change = 0;
 
-        change = empty_heuristic(
+        change += empty_heuristic(
                 p, 
                 &pa_empty,
                 &pa_impossible);
@@ -798,8 +798,8 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                break;   // mur
             }
 
+            wbuf[x2] = p->data[i] + 1;
             p->data[i] = lusq_enlighted;
-            wbuf[x2] = 1;
             --nb_e;            
          }
 
@@ -815,8 +815,8 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                break;   // mur
             }
 
+            wbuf[x2] = p->data[i] + 1;
             p->data[i] = lusq_enlighted;
-            wbuf[x2] = 1;
             --nb_e;
          }
 
@@ -832,8 +832,8 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                break; // mur
             }
 
+            hbuf[y2] = p->data[i] + 1;
             p->data[i] = lusq_enlighted;
-            hbuf[y2] = 1;
             --nb_e;            
          }
 
@@ -849,8 +849,8 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
                break; // mur
             }
 
+            hbuf[y2] = p->data[i] + 1;
             p->data[i] = lusq_enlighted;
-            hbuf[y2] = 1;
             --nb_e;
          }
 
@@ -899,7 +899,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
             if (wbuf[x2]) {
                int i = y * width + x2;
 
-               p->data[i] = lusq_empty;
+               p->data[i] = wbuf[x2] - 1;
                wbuf[x2] = 0;
                ++nb_e;
             }
@@ -910,7 +910,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
             if (wbuf[x2]) {
                int i = y * width + x2;
 
-               p->data[i] = lusq_empty;
+               p->data[i] = wbuf[x2] - 1;
                wbuf[x2] = 0;
                ++nb_e;
             }
@@ -921,7 +921,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
             if (hbuf[y2]) {
                int i = y2 * width + x;
 
-               p->data[i] = lusq_empty;
+               p->data[i] = hbuf[y2] - 1;
                hbuf[y2] = 0;
                ++nb_e;
             }
@@ -932,7 +932,7 @@ static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
             if (hbuf[y2]) {
                int i = y2 * width + x;
 
-               p->data[i] = lusq_empty;
+               p->data[i] = hbuf[y2] - 1;
                hbuf[y2] = 0;
                ++nb_e;
             }
