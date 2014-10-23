@@ -24,9 +24,10 @@ void add_to_position_array(position_array * pa, position p)
     if(pa->size == pa->max_size)
     {
         pa->max_size = (pa->max_size <= 0) ? SIZE : pa->max_size * 2;
-        pa->array=realloc(pa->array,pa->max_size);
+        pa->array=realloc(pa->array,sizeof(position) * pa->max_size);
     }
-    pa->array[pa->size++] = p;
+    pa->array[pa->size] = p;
+    pa->size++;
 }
 
 
@@ -109,13 +110,13 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
         count+= current_status == lusq_empty;
     }
 
-    for(c = column + 1; l < width ; c++)
+    for(c = column + 1; c < width ; c++)
     {
         current_status = p->data[line * width + c];
         if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
     }
-    for(c = column - 1; l >= 0 ; c--)
+    for(c = column - 1; c >= 0 ; c--)
     {
         current_status = p->data[line * width + c];
         if(current_status <= lusq_block_any) break;
@@ -123,4 +124,34 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
     }
 
     return count == 0;
+}
+
+
+int_array new_int_array()
+{
+    return (int_array){malloc(sizeof(int)*SIZE), 0, SIZE};
+}
+
+int_array new_int_array_with_size(unsigned int size)
+{
+    if(size == 0) size = SIZE;
+    return (int_array){malloc(sizeof(int)*size), 0, size};
+}
+
+void delete_int_array(int_array * ia)
+{
+    free(ia->array);
+    ia->size = 0;
+    ia->max_size = 0;
+}
+
+void add_to_int_array(int_array * ia, int p)
+{
+    if(ia->size == ia->max_size)
+    {
+        ia->max_size = (ia->max_size <= 0) ? SIZE : ia->max_size * 2;
+        ia->array=realloc(ia->array, sizeof(int) * ia->max_size);
+    }
+    ia->array[ia->size] = p;
+    ia->size++;
 }
