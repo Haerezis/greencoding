@@ -1136,6 +1136,7 @@ int remove_solution(lu_puzzle * p, position_array pa_empty, int * solution)
 {
     int i = 0;
     unsigned int width = p->width;
+    position pos;
 
     while(solution[i] != -1)
     {
@@ -1147,16 +1148,21 @@ int remove_solution(lu_puzzle * p, position_array pa_empty, int * solution)
 }
 
 
+void remove_impossible(lu_puzzle * p)
+{
+    unsigned int i = 0, size = p->width * p->height;
+    for(i = 0 ; i < size ; i++)
+    {
+        if(p->data[i] == lusq_impossible) p->data[i] = lusq_empty;
+    }
+}
+
 void write_solutions(lu_puzzle * p, position_array * classes, int_array * classes_solutions, unsigned int nb_classes, unsigned int *sol_id, FILE *fd)
 {
-    int i = 0, ii = 0;
-    position pos;
+    int i = 0;
     int sol_id_local = 0;
-    int * pile = NULL, pile_size = 0;
-
-
-    int_array solutions;
-    position_array positions_empty;
+    int * stack = NULL;
+    unsigned int stack_size = 0;
 
     if(*sol_id == 0)
     {
@@ -1164,35 +1170,41 @@ void write_solutions(lu_puzzle * p, position_array * classes, int_array * classe
         *sol_id = 1;
         return;
     }
+    remove_impossible(p);
 
-    pile = (int*) malloc(sizeof(int) * nb_classes);
-
-    solutions = classes_solutions[0];
-    positions_empty = classes[0];
-
-
-    while(solutions.array[i] != -2)
+    stack = (int*) malloc(sizeof(int) * nb_classes);
+    
+    while((stack_size > 0) || (classes_solutions[stack_size].array[i] != -2))
     {
-        ii = i;
-        while(solutions.array[i] != -1)
+        while((classes_solutions[stack_size].array[i] != -2) && (try_solution(p, classes[stack_size], &classes_solutions[stack_size].array[i]) == 0))
         {
-            pos = positions_empty.array[solutions.array[i]];
-            p->data[pos.line * p->width + pos.column] = lusq_lbulb;
             i++;
         }
-        i = ii;
-        if(verify_solution(p, left_, right_, top_, bottom_, center_))
+        if(classes_solutions[stack_size].array[i] != -2)
         {
-//            print_solution(positions_empty, &solutions.array[i]);
-            sol_id_local++;
+            stack[stack_size] = i;
+            stack_size++;
+            i = 0;
         }
-        while(solutions.array[i] != -1)
+        else
         {
-            pos = positions_empty.array[solutions.array[i]];
-            p->data[pos.line * p->width + pos.column] = lusq_empty;
-            i++;
+            --stack_size;
+            i = stack[stack_size];
+            i += remove_solution(p, classes[stack_size], &classes_solutions[stack_size].array[i]) + 1;
+
         }
-        i++;
+        if(stack_size == nb_classes)
+        {
+            if(verify_solution(p,left_,right_,top_,bottom_,center_) == 1)
+            {
+                puzzle_store(p,fd);
+                sol_id_local++;
+            }
+
+            --stack_size;
+            i = stack[stack_size];
+            i += remove_solution(p, classes[stack_size], &classes_solutions[stack_size].array[i]) + 1;
+        }
     }
     *sol_id = sol_id_local;
 }
@@ -1210,8 +1222,7 @@ void solve_classes(lu_puzzle *p, position_array * pa_classes,
     {
         solve(p, pa_classes[index] , pa_impossible_classes[index], &classes_solutions[index], sol_id);
     }
-    //FIXME Enlever les cases lusq_impossible (non nécessaire pour écrire les solutions, et le rendra la solution fausse).
-    return;
+
     write_solutions(p, pa_classes, classes_solutions, pa_classes_size, sol_id, fd);
 }
 
@@ -1226,6 +1237,10 @@ int solver_main(int argc, char **argv) {
    lu_puzzle *p = puzzle_load(argv[1], 1);
 
    FILE *fd = puzzle_open_storage_file(argv[2], p->width, p->height);
+   if(setvbuf(fd, NULL, _IOFBF, p->width * p->height * 165888) == 0)
+   {
+       printf("New buffer allocated\n");
+   }
    printf("Solving...\n");
 
    unsigned int nb_e = puzzle_count(p, lusq_empty);
