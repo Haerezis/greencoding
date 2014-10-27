@@ -30,6 +30,10 @@ typedef unsigned char lu_square;
 #define   lusq_impossible 9
 /** case vide innondé, utilisé dans lightupsolver **/
 #define   lusq_flood 10
+#define   lusq_flood_impossible 11
+/** case avec une fausse ampoule (utilisé pour tester la validité d'une solution) **/
+#define   lusq_fake_lbulb 12
+#define   lusq_fake_enlighted 15
 
 /* on aurait pu faire ça avec un 'enum' mais ça aurait stocké un int au
  * lieu d'un simple char... */
@@ -135,6 +139,10 @@ lu_puzzle *puzzle_clone(const lu_puzzle *p);
  * \param y Ordonnée de l'ampoule à "allumer".
  */
 __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y);
+
+__inline void puzzle_light_on_with_bufs(lu_puzzle *p, unsigned int x, unsigned int y, char * wbuf, char * hbuf, int * empty_count);
+
+__inline void puzzle_light_off_with_bufs(lu_puzzle *p, unsigned int x, unsigned int y, char * wbuf, char * hbuf,int * empty_count);
 
 /*!
  * Remplace les cases vides par des cases "enlighted" quand elles sont

@@ -6,6 +6,8 @@
 #include "lightupsolver.h"
 #include "utils.h"
 
+position_array left_, right_ ,top_ ,bottom_,center_;
+
 /*!
  * Lors de la résolution, on doit savoir quelles cases sont allumées sur la
  * ligne et sur la colonne d'une ampoule. Pour stocker cette info, on maintient
@@ -15,8 +17,8 @@
  * affecte un de chaque par requête.
  */
 typedef struct {
-   int *wbuf;              /*!< Buffers de lignes */
-   int *hbuf;              /*!< Buffers de colonnes */
+   char *wbuf;              /*!< Buffers de lignes */
+   char *hbuf;              /*!< Buffers de colonnes */
    unsigned int width;     /*!< Largeur du puzzle à résoudre */
    unsigned int height;    /*!< Hauteur du puzzle à résoudre */
    unsigned int nb_used;   /*!< Nombre de couples de buffers utilisés */
@@ -31,16 +33,16 @@ typedef struct {
  * \return Un nouveau pool de buffers de lignes et colonnes pour la résolution
  * du puzzle.
  */
-static wh_bufs *new_wh_bufs(unsigned int width, unsigned int height) {
+wh_bufs *new_wh_bufs(unsigned int width, unsigned int height, unsigned int size) {
    wh_bufs *res = (wh_bufs *) malloc(sizeof(*res));
 
    res->width = width;
    res->height = height;
    res->nb_used = 0;
-   res->nb_allocs = width + height;    // estimation du nb d'ampoules
+   res->nb_allocs = (size > 0) ? size : width + height;    // estimation du nb d'ampoules
 
-   res->wbuf = (int *) malloc(sizeof(*res->wbuf) * res->nb_allocs * width);
-   res->hbuf = (int *) malloc(sizeof(*res->hbuf) * res->nb_allocs * height);
+   res->wbuf = (char *) malloc(sizeof(*res->wbuf) * res->nb_allocs * width);
+   res->hbuf = (char *) malloc(sizeof(*res->hbuf) * res->nb_allocs * height);
 
    return res;
 }
@@ -52,23 +54,41 @@ static wh_bufs *new_wh_bufs(unsigned int width, unsigned int height) {
  * \param[out] wbuf Ligne allouée dans le pool.
  * \param[out] hbuf Colonne allouée dans le pool.
  */
-static void pop_wh_buf(wh_bufs *bufs, int **wbuf, int **hbuf) {
+void pop_wh_buf(wh_bufs *bufs, char **wbuf, char **hbuf) {
    // tous les buffers sont utilisés
    if (bufs->nb_used >= bufs->nb_allocs) {
       bufs->nb_allocs *= 2;
 
-      bufs->wbuf = (int *) realloc(bufs->wbuf,
-         sizeof(*bufs->wbuf) * bufs->width * bufs->nb_allocs);
-      bufs->hbuf = (int *) realloc(bufs->hbuf,
-         sizeof(*bufs->hbuf) * bufs->height * bufs->nb_allocs);
+      bufs->wbuf = (char *) realloc(
+              bufs->wbuf,
+              sizeof(*bufs->wbuf) * bufs->width * bufs->nb_allocs);
+      bufs->hbuf = (char *) realloc(
+              bufs->hbuf,
+              sizeof(*bufs->hbuf) * bufs->height * bufs->nb_allocs);
    }
 
-   *wbuf = bufs->wbuf + bufs->width * bufs->nb_used;
-   *hbuf = bufs->hbuf + bufs->height * bufs->nb_used;
+   *wbuf = bufs->wbuf;
+   bufs->wbuf += bufs->width;
+   *hbuf = bufs->hbuf;
+   bufs->hbuf += bufs->height;
    ++bufs->nb_used;
    
    memset(*wbuf, 0, sizeof(**wbuf) * bufs->width);
    memset(*hbuf, 0, sizeof(**hbuf) * bufs->height);
+}
+
+void get_head_wh_buf(wh_bufs *bufs, char **wbuf, char **hbuf)
+{
+   if(bufs->nb_used == 0)
+   {
+       *wbuf = NULL;
+       *hbuf = NULL;
+   }
+   else
+   {
+       *wbuf = bufs->wbuf - bufs->width;
+       *hbuf = bufs->hbuf - bufs->height;
+   }
 }
 
 /*!
@@ -77,10 +97,13 @@ static void pop_wh_buf(wh_bufs *bufs, int **wbuf, int **hbuf) {
  *
  * \param bufs Le pool qui possède la dernière ligne et colonne affectées.
  */
-static void release_wh_buf(wh_bufs *bufs) {
+void release_wh_buf(wh_bufs *bufs) {
    if (bufs->nb_used == 0) {
       return;
    }
+
+    bufs->wbuf = bufs->wbuf - bufs->width;
+    bufs->hbuf = bufs->hbuf - bufs->height;
 
    --bufs->nb_used;
 }
@@ -90,9 +113,9 @@ static void release_wh_buf(wh_bufs *bufs) {
  *
  * \param bufs Le pool de buffers à libérer.
  */
-static void free_wh_bufs(wh_bufs *bufs) {
-   free(bufs->wbuf);
-   free(bufs->hbuf);
+void free_wh_bufs(wh_bufs *bufs) {
+   free(bufs->wbuf - bufs->nb_used*bufs->width);
+   free(bufs->hbuf - bufs->nb_used*bufs->height);
    free(bufs);
 }
 
@@ -107,13 +130,13 @@ static void free_wh_bufs(wh_bufs *bufs) {
  * est imposé par la case. Renvoie 0 si la case n'est pas une case à contrainte
  * ou si il n'y a pas assez d'ampoule autour de la case.
  */
-static __inline int wall_saturated(const lu_puzzle *p, unsigned int x,
+__inline int wall_saturated(const lu_puzzle *p, unsigned int x,
    unsigned int y)
 {
    unsigned int idx = y * p->width + x;
 
    // la case ne spécifie pas de contrainte particulière
-   if (p->data[idx] > lusq_4) {
+   if ((p->data[idx] > lusq_4) || (x>=p->width) || (y>=p->height)) {
       return 0;
    }
 
@@ -148,7 +171,7 @@ static __inline int wall_saturated(const lu_puzzle *p, unsigned int x,
  * Renvoie 0 si la contrainte ne plus assez de place autour
  * de la case pour respecter la contrainte.
  */
-static __inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
+__inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
    unsigned int y)
 {
    unsigned int idx = y * p->width + x;
@@ -181,7 +204,36 @@ static __inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
 }
 
 
-static char wall_heuristic(lu_puzzle *p,
+void print_solutions(position_array pa_empty, int * solutions)
+{
+    unsigned int i = 0;
+    while(solutions[i] != -2)
+    {
+        printf("[");
+        while(solutions[i] != -1)
+        {
+            printf(" (%u,%u),", pa_empty.array[solutions[i]].line, pa_empty.array[solutions[i]].column);
+            i++;
+        }
+        printf("]\n");
+        i++;
+    }
+}
+
+void print_solution(position_array pa_empty, int * solutions)
+{
+    unsigned int i = 0;
+    printf("[");
+    while(solutions[i] != -1)
+    {
+        printf(" (%u,%u),", pa_empty.array[solutions[i]].line, pa_empty.array[solutions[i]].column);
+        i++;
+    }
+    printf("]\n");
+}
+
+
+char wall_heuristic(lu_puzzle *p,
         position_array * pa_left_border,
         position_array * pa_right_border,
         position_array * pa_top_border,
@@ -533,7 +585,7 @@ static char wall_heuristic(lu_puzzle *p,
 }
 
 
-static char empty_and_impossible_heuristic(lu_puzzle * p, position_array * pa_empty, position_array * pa_impossible)
+char empty_and_impossible_heuristic(lu_puzzle * p, position_array * pa_empty, position_array * pa_impossible)
 {
     unsigned int c = 0,
                  l = 0,
@@ -597,7 +649,10 @@ static char empty_and_impossible_heuristic(lu_puzzle * p, position_array * pa_em
     return change;
 }
 
-static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned int * nb_e)
+void pre_solve(lu_puzzle *p, position_array * positions_empty,
+        position_array * positions_impossible,position_array * left,
+        position_array * right, position_array * top, position_array * bottom,
+        position_array * center)
 {
     unsigned int c = 0,
                  l = 0,
@@ -612,7 +667,7 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
     position_array pa_empty = new_position_array();
     position_array pa_impossible = new_position_array();
 
-    position_array pa_center = new_position_array();
+    position_array pa_center = new_position_array_with_size((width-2)*(height-2));
     position_array pa_left_border = new_position_array_with_size(height);
     position_array pa_right_border = new_position_array_with_size(height);
     position_array pa_top_border = new_position_array_with_size(width);
@@ -718,10 +773,15 @@ static void pre_solve(lu_puzzle *p, position_array * positions_empty, unsigned i
 
 
     *positions_empty = pa_empty;
-    *nb_e = pa_impossible.size + pa_empty.size;
+    *positions_impossible = pa_impossible;
+    *left = pa_left_border;
+    *right = pa_right_border;
+    *top = pa_top_border;
+    *bottom = pa_bottom_border;
+    *center = pa_center;
 }
 
-static void print_class(position_array* pa_array, unsigned int pa_array_size)
+void print_class(position_array* pa_array, unsigned int pa_array_size)
 {
     unsigned int index_array, index;
     for(index_array = 0 ; index_array < pa_array_size; index_array++)
@@ -735,317 +795,424 @@ static void print_class(position_array* pa_array, unsigned int pa_array_size)
 }
 
 
-static void classify_positions(lu_puzzle *p, position_array ** pa_array, unsigned int * pa_array_size, position_array pa_empty)
+void classify_positions(lu_puzzle *p, position_array ** pa_array_empty, position_array ** pa_array_impossible, unsigned int * pa_array_size, position_array pa_empty)
 {
-    position_array * pa_local_array = NULL;
+    position_array * pa_local_array_empty = NULL, *pa_local_array_impossible = NULL;
     unsigned int pa_local_array_size = 0;
 
     int width = p->width;
     int height = p->height;
 
-    unsigned int index_empty = 0;
+    unsigned int index_empty = 0, index = 0;
     int c = 0, l = 0;
 
-    position_array pa = {0,0,0};
+    position_array current_pa_empty = {0,0,0};
+    position_array current_pa_impossible = {0,0,0};
+    unsigned int total_empty_size = 0;
     position_array pa_flood = new_position_array_with_size(pa_empty.size);
     position current_pos, flood_pos;
 
-    pa_local_array = (position_array*) malloc(sizeof(position_array) * pa_empty.size);
+    pa_local_array_empty = (position_array*) malloc(sizeof(position_array) * pa_empty.size);
+    pa_local_array_impossible = (position_array*) malloc(sizeof(position_array) * pa_empty.size);
 
-    //TODO : Faire de l'innondation à la place
     for(index_empty = 0; index_empty < pa_empty.size ; index_empty++)
     {
         current_pos = pa_empty.array[index_empty];
-        if(p->data[current_pos.line*width + current_pos.column] == lusq_flood) continue;//Déjà ajouté à une classe
+        if(p->data[current_pos.line*width + current_pos.column] == lusq_flood || p->data[current_pos.line*width + current_pos.column] == lusq_flood_impossible) continue;//Déjà ajouté à une classe
 
-        pa = new_position_array_with_size(pa_empty.size);//Taille regressive normalement //TODO
+        current_pa_empty = new_position_array_with_size(pa_empty.size - total_empty_size);//Taille dégressive
+        current_pa_impossible = new_position_array();
         add_to_position_array(&pa_flood,current_pos);
 
         while(pa_flood.size > 0)
         {
             flood_pos = pa_flood.array[pa_flood.size-1];
             pa_flood.size--;
-            p->data[flood_pos.line*width + flood_pos.column] = lusq_flood;
-            add_to_position_array(&pa, flood_pos);
+
+            if(p->data[flood_pos.line*width + flood_pos.column] == lusq_empty)
+            {
+                p->data[flood_pos.line*width + flood_pos.column] = lusq_flood;
+                add_to_position_array(&current_pa_empty, flood_pos);
+            }
+            else if(p->data[flood_pos.line*width + flood_pos.column] == lusq_impossible)
+            {
+                p->data[flood_pos.line*width + flood_pos.column] = lusq_flood_impossible;
+                add_to_position_array(&current_pa_impossible, flood_pos);
+            }
+            else continue;
             
             c = flood_pos.column + 1;
-            while((c < width) && (p->data[flood_pos.line*width + c] == lusq_impossible || p->data[flood_pos.line*width + c] == lusq_enlighted)) c++;
-            if((c < width) && (p->data[flood_pos.line*width + c] == lusq_empty))
+            while((c < width) && (p->data[flood_pos.line*width + c] == lusq_enlighted)) c++;
+            if((c < width) && ((p->data[flood_pos.line*width + c] == lusq_empty) || (p->data[flood_pos.line*width + c] == lusq_impossible)))
             {
                 add_to_position_array(&pa_flood, (position){flood_pos.line,c});
             }
 
             c = flood_pos.column - 1;
-            while((c >= 0) && (p->data[flood_pos.line*width + c] == lusq_impossible || p->data[flood_pos.line*width + c] == lusq_enlighted)) c--;
-            if((c >= 0) && (p->data[flood_pos.line*width + c] == lusq_empty))
+            while((c >= 0) && (p->data[flood_pos.line*width + c] == lusq_enlighted)) c--;
+            if((c >= 0) && ((p->data[flood_pos.line*width + c] == lusq_empty) || (p->data[flood_pos.line*width + c] == lusq_impossible)))
             {
                 add_to_position_array(&pa_flood, (position){flood_pos.line,c});
             }
 
             l = flood_pos.line + 1;
-            while((l < height) && (p->data[l*width + flood_pos.column] == lusq_impossible || p->data[l*width + flood_pos.column] == lusq_enlighted)) l++;
-            if((l < height) && (p->data[l*width + flood_pos.column] == lusq_empty))
+            while((l < height) && (p->data[l*width + flood_pos.column] == lusq_enlighted)) l++;
+            if((l < height) && ((p->data[l*width + flood_pos.column] == lusq_empty) || (p->data[l*width + flood_pos.column] == lusq_impossible)))
             {
                 add_to_position_array(&pa_flood, (position){l,flood_pos.column});
             }
 
             l = flood_pos.line - 1;
-            while((l >= 0) && (p->data[l*width + flood_pos.column] == lusq_impossible || p->data[l*width + flood_pos.column] == lusq_enlighted)) l--;
-            if((l >= 0) && (p->data[l*width + flood_pos.column] == lusq_empty))
+            while((l >= 0) && (p->data[l*width + flood_pos.column] == lusq_enlighted)) l--;
+            if((l >= 0) && ((p->data[l*width + flood_pos.column] == lusq_empty) || (p->data[l*width + flood_pos.column] == lusq_impossible)))
             {
                 add_to_position_array(&pa_flood, (position){l,flood_pos.column});
             }
         }
-        pa_local_array[pa_local_array_size++] = pa;
+        pa_local_array_empty[pa_local_array_size] = current_pa_empty;
+        pa_local_array_impossible[pa_local_array_size] = current_pa_impossible;
+        pa_local_array_size++;
+        total_empty_size += current_pa_empty.size;
     }
 
-    for(index_empty = 0; index_empty < pa_empty.size ; index_empty++)
+    unsigned int i = 0;
+    for(i = 0; i< pa_local_array_size; i++)
     {
-        current_pos = pa_empty.array[index_empty];
-        p->data[current_pos.line*width + current_pos.column] = lusq_empty;
+        for(index = 0; index < pa_local_array_empty[i].size ; index++)
+        {
+            current_pos = pa_local_array_empty[i].array[index];
+            p->data[current_pos.line*width + current_pos.column] = lusq_empty;
+        }
+
+        for(index = 0; index < pa_local_array_impossible[i].size ; index++)
+        {
+            current_pos = pa_local_array_impossible[i].array[index];
+            p->data[current_pos.line*width + current_pos.column] = lusq_impossible;
+        }
     }
 
-    *pa_array = pa_local_array;
+    *pa_array_empty = pa_local_array_empty;
+    *pa_array_impossible = pa_local_array_impossible;
     *pa_array_size = pa_local_array_size;
 
     return;
 }
 
-
-/*!
- * Résoud un puzzle light-up de façon récursive.
- *
- * \param[in,out] p Le puzzle à résoudre.
- * \param whbufs Pool de lignes et colonnes à utiliser pour la résolution.
- * \param nb_e Nombre de cases vides dans le puzzle.
- * \param forbiden Masque des cases à éviter. Doit contenir autant d'entrée qu'
- * il y a de cases dans \p p. Ne doit contenir que des 0 lors du premier appel.
- * \param[in, out] sol_id Numéro de la solution en cours
- * \param resdir Chemin vers le dossier de résultats
- *
- * \return 1 si le puzzle est résoluble, 0 sinon.
- */
-static void solve(lu_puzzle *p, wh_bufs *whbufs, unsigned int nb_e,
-   unsigned int *forbiden, position_array * pa_empty, unsigned int *sol_id, FILE *fd) 
+//Regarde s'il est possible d'allumer cette emplacement (si l'emplacement est déjà allumé, ou si il y a conflit avec un mur à coté).
+int impossible_to_light(lu_puzzle *p, position pos)
 {
-   unsigned int x, y;
-//   unsigned index = 0;
+    char boolean = 0;
+    boolean = (p->data[pos.line * p->width + pos.column] != lusq_empty)
+    || wall_saturated(p,pos.column - 1, pos.line)
+    || wall_saturated(p,pos.column + 1, pos.line)
+    || wall_saturated(p,pos.column, pos.line-1)
+    || wall_saturated(p,pos.column, pos.line+1);
 
-   unsigned int width = p->width;
-   unsigned int height = p->height;
+    return boolean;
+}
 
-   // solution trouvée !
-   if (nb_e == 0) {
-      *sol_id = *sol_id + 1;
+int possible_to_light(lu_puzzle *p, position pos)
+{
+    char boolean = 0;
+    boolean = (p->data[pos.line * p->width + pos.column] == lusq_empty)
+    && !wall_saturated(p,pos.column - 1, pos.line)
+    && !wall_saturated(p,pos.column + 1, pos.line)
+    && !wall_saturated(p,pos.column, pos.line-1)
+    && !wall_saturated(p,pos.column, pos.line+1);
 
-      puzzle_store(p, fd);
-      return;
-   }
-
-   int *hbuf, *wbuf;
-   pop_wh_buf(whbufs, &wbuf, &hbuf);
-
-   // Itère sur les cases vides
-   for (y = 0; y < p->height; ++y) {
-      for (x = 0; x < p->width; ++x) {
-/*   for(index = 0; index < pa_empty->size ; index++) {
-       {
-         //printf("%u\n",index);
-         x = pa_empty->array[index].column;
-         y = pa_empty->array[index].line;
-*/         
-         // la case n'est pas vide
-         if (p->data[y * width + x] != lusq_empty) {
-            continue;
-         }
-
-         // On doit éviter cette case car ça n'a pas abouti la dernière fois
-         // qu'on a mis une ampoule à cet endroit
-         if (forbiden[y * width + x]) {
-            continue;
-         }
-
-         // si les murs autour de cette case interdisent la présence d'une
-         // ampoule ici, on passe à la case suivante.
-         if ((x >= 1 && wall_saturated(p, x - 1, y))
-             || (x < width - 1 && wall_saturated(p, x + 1, y))
-             || (y >= 1 && wall_saturated(p, x, y - 1))
-             || (y < height - 1 && wall_saturated(p, x, y + 1)))
-         {
-            continue;
-         }
-
-         // éclaire la case en se souvenant des cases nouvellement allumées
-
-         p->data[y * width + x] = lusq_lbulb;
-         --nb_e;
-   
-         int x2, y2;
-
-         // on éclaire à gauche
-         for (x2 = (int) x - 1; x2 >= 0; --x2) {
-            int i = y * width + x2;
-
-            if (p->data[i] == lusq_enlighted) {
-               continue;
-            }
-
-            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
-               break;   // mur
-            }
-
-            wbuf[x2] = p->data[i] + 1;
-            p->data[i] = lusq_enlighted;
-            --nb_e;            
-         }
-
-         // à droite
-         for (x2 = x + 1; (unsigned int) x2 < width; ++x2) {
-            int i = y * width + x2;
-
-            if (p->data[i] == lusq_enlighted) {
-               continue;
-            }
-
-            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
-               break;   // mur
-            }
-
-            wbuf[x2] = p->data[i] + 1;
-            p->data[i] = lusq_enlighted;
-            --nb_e;
-         }
-
-         // en haut
-         for (y2 = (int) y - 1; y2 >= 0; --y2) {
-            int i = y2 * width + x;
-
-            if (p->data[i] == lusq_enlighted) {
-               continue;
-            }
-
-            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
-               break; // mur
-            }
-
-            hbuf[y2] = p->data[i] + 1;
-            p->data[i] = lusq_enlighted;
-            --nb_e;            
-         }
-
-         // en bas
-         for (y2 = y + 1; (unsigned int) y2 < height; ++y2) {
-            int i = y2 * width + x;
-
-            if (p->data[i] == lusq_enlighted) {
-               continue;
-            }
-
-            if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
-               break; // mur
-            }
-
-            hbuf[y2] = p->data[i] + 1;
-            p->data[i] = lusq_enlighted;
-            --nb_e;
-         }
-
-         // vérifie que les cases qu'on vient d'allumer ne contredisent pas des
-         // contraintes encore non respectées
-         unsigned int minx, maxx, miny, maxy, wallsok = 1;
-         
-         minx = (x >= 1) ? x - 1 : 0;
-         maxx = (x < width - 1) ? x + 1 : width - 1;
-         miny = (y >= 1) ? y - 1 : 0;
-         maxy = (y < height - 1) ? y + 1 : height - 1;
-
-         for (y2 = 0; (unsigned int) y2 < height && wallsok; ++y2) {
-            for (x2 = minx; (unsigned int) x2 <= maxx && wallsok; ++x2) {
-               wallsok &= wall_clear(p, x2, y2);
-            }
-         }
-         for (y2 = miny; (unsigned int) y2 <= maxy && wallsok; ++y2) {
-            for (x2 = 0; (unsigned int) x2 < width && wallsok; ++x2) {
-               wallsok &= wall_clear(p, x2, y2);
-            }
-         }
-
-         // si une solution est possible, on continue la résolution
-         if (wallsok) {
-            solve(p, whbufs, nb_e, forbiden,pa_empty, sol_id, fd);
-         }
-
-         // on retire notre ampoule
-         p->data[y * width + x] = lusq_empty;
-         ++nb_e;
-
-         // Il faut éviter de placer une ampoule ici dans les prochaines
-         // itérations: on a tout testé avec cette configuration
-         forbiden[y * width + x] = 1;
-
-         // Les appels récursifs ont peut être interdit certaines cases qui
-         // doivent être re-testées une fois l'ampoule en cours retirée
-         unsigned int fidx; 
-         for (fidx = y * width + x + 1; fidx < width * height; ++fidx) {
-            forbiden[fidx] = 0;
-         }
-
-         // on met à jour l'information d'éclairage à gauche
-         for (x2 = (int) x - 1; x2 >= 0; --x2) {
-            if (wbuf[x2]) {
-               int i = y * width + x2;
-
-               p->data[i] = wbuf[x2] - 1;
-               wbuf[x2] = 0;
-               ++nb_e;
-            }
-         }
-
-         // à droite
-         for (x2 = x + 1; (unsigned int) x2 < width; ++x2) {
-            if (wbuf[x2]) {
-               int i = y * width + x2;
-
-               p->data[i] = wbuf[x2] - 1;
-               wbuf[x2] = 0;
-               ++nb_e;
-            }
-         }
-
-         // en haut
-         for (y2 = (int) y - 1; y2 >= 0; --y2) {
-            if (hbuf[y2]) {
-               int i = y2 * width + x;
-
-               p->data[i] = hbuf[y2] - 1;
-               hbuf[y2] = 0;
-               ++nb_e;
-            }
-         }
-
-         // en bas
-         for (y2 = y + 1; (unsigned int) y2 < height; ++y2) {
-            if (hbuf[y2]) {
-               int i = y2 * width + x;
-
-               p->data[i] = hbuf[y2] - 1;
-               hbuf[y2] = 0;
-               ++nb_e;
-            }
-         }
-      }
-   }
-
-   // on n'a plus besoin de ces buffers
-   release_wh_buf(whbufs);
+    return boolean;
 }
 
 
-static void solve_classes(lu_puzzle *p, position_array * pa_array, unsigned int pa_array_size, wh_bufs *whbufs, unsigned int nb_e,
-   unsigned int *forbiden, position_array * pa_empty, unsigned int *sol_id, FILE *fd) 
+//Regarde si la solution allume tout les emplacements vide (possiblement impossible) que represente pa_empty
+int solution_is_complete(lu_puzzle *p, position_array pa_empty, position_array pa_impossible)
 {
-    //TODO : solve every classes
-    solve(p, whbufs, nb_e, forbiden, pa_empty, sol_id, fd); 
+    unsigned int index = 0;
+    unsigned int return_boolean = 0;
+
+    index = 0;
+    while((index < pa_empty.size) &&
+          ((p->data[pa_empty.array[index].line*p->width + pa_empty.array[index].column] == lusq_lbulb) ||
+           (p->data[pa_empty.array[index].line*p->width + pa_empty.array[index].column] == lusq_enlighted))
+         ) index++;
+    if(index >= pa_empty.size)
+    {
+        index = 0;
+        while((index < pa_impossible.size) && (p->data[pa_impossible.array[index].line*p->width + pa_impossible.array[index].column] == lusq_enlighted)) index++;
+        return_boolean = index >= pa_impossible.size;
+    }
+
+    return return_boolean;
+}
+
+
+/*!
+ * Résoud un puzzle light-up de façon itérative.
+ */
+void solve(lu_puzzle *p, position_array pa_empty, position_array pa_impossible, int_array * solutions, unsigned int *sol_id) 
+{
+    unsigned int index = 0, sol_id_local = 0, useless = 0;
+    wh_bufs * whbufs = new_wh_bufs(p->width, p->height, pa_empty.size);
+    char *wbuf = NULL, *hbuf = NULL;
+    int empty_count = pa_empty.size + pa_impossible.size;
+
+    int_array ia_current_solution = new_int_array();
+    *solutions = new_int_array();
+    do
+    {
+        useless++;  //FIXME
+        while((index < pa_empty.size) && impossible_to_light(p, pa_empty.array[index])) index++;
+        if(index < pa_empty.size)
+        {
+            pop_wh_buf(whbufs, &wbuf, &hbuf);
+            puzzle_light_on_with_bufs(p, pa_empty.array[index].column, pa_empty.array[index].line, wbuf, hbuf, &empty_count);
+            add_to_int_array(&ia_current_solution, index);
+        }
+        else
+        {
+            //if(solution_is_complete(p, pa_empty, pa_impossible) == 1)
+            if(empty_count <= 0)
+            {
+                if((solutions->size + ia_current_solution.size + 1) > solutions->max_size)
+                {
+                    solutions->max_size *= 2;
+                    solutions->array = (int*)realloc(solutions->array, sizeof(int) * solutions->max_size);
+                }
+                memcpy(&solutions->array[solutions->size], ia_current_solution.array, sizeof(*ia_current_solution.array) * ia_current_solution.size);
+                solutions->size += ia_current_solution.size;
+                add_to_int_array(solutions, -1);
+                sol_id_local++;
+            }
+            
+            --ia_current_solution.size;
+            index = ia_current_solution.array[ia_current_solution.size];//Dépile le dernier élément qui ne sert à rien
+            get_head_wh_buf(whbufs, &wbuf, &hbuf);
+            puzzle_light_off_with_bufs(p, pa_empty.array[index].column, pa_empty.array[index].line, wbuf, hbuf, &empty_count);
+            release_wh_buf(whbufs);
+        }
+        index++;
+    }
+    while((ia_current_solution.size > 0) || (index < pa_empty.size));
+
+    add_to_int_array(solutions, -2);
+    *sol_id = sol_id_local;
+    free_wh_bufs(whbufs);
+}
+
+
+int verify_solution(lu_puzzle *p, position_array left, position_array right, position_array top, position_array bottom, position_array center)
+{
+    unsigned char boolean = 1;
+    unsigned int index = 0, lbulb_count = 0;
+    position pos;
+
+    unsigned int width = p->width, height = p->height;
+
+    //COINS
+    //Coins haut gauche
+    if(p->data[0] == lusq_1)
+    {
+        boolean = boolean && ((p->data[1] == lusq_lbulb) || (p->data[width] == lusq_lbulb));
+    }
+
+    //Coins haut droit
+    if(p->data[width-1] == lusq_1)
+    {
+        boolean = boolean && ((p->data[width-2] == lusq_lbulb) || (p->data[2*width-1] == lusq_lbulb));
+    }
+
+    //Coins bottom gauche
+    if(p->data[width*(height-1)] == lusq_1)
+    {
+        boolean = boolean && ((p->data[width*(height-2)] == lusq_lbulb) || (p->data[width*(height-1) + 1] == lusq_lbulb));
+    }
+
+    //Coins bottom right
+    if(p->data[width*height - 1] == lusq_1)
+    {
+        boolean = boolean && ((p->data[width*(height-1) - 1] == lusq_lbulb) || (p->data[width*height - 2 + 1] == lusq_lbulb));
+    }
+
+    //Bord gauche
+    for(index = 0; index < left.size && boolean ; index++)
+    {
+        pos = left.array[index];
+
+        lbulb_count = (
+                (p->data[(pos.line-1)*width] == lusq_lbulb) +
+                (p->data[(pos.line)*width + 1] == lusq_lbulb) +
+                (p->data[(pos.line+1)*width] == lusq_lbulb));
+
+        boolean = boolean && (lbulb_count == p->data[pos.line * width + pos.column]);
+    }
+    
+    //Bord droit
+    for(index = 0; index < right.size && boolean ; index++)
+    {
+        pos = right.array[index];
+
+        lbulb_count = (
+                (p->data[(pos.line-1)*width] == lusq_lbulb) +
+                (p->data[(pos.line)*width - 1] == lusq_lbulb) +
+                (p->data[(pos.line+1)*width] == lusq_lbulb));
+
+        boolean = boolean && (lbulb_count == p->data[pos.line * width + pos.column]);
+    }
+
+    //Bord haut
+    for(index = 0; index < top.size && boolean ; index++)
+    {
+        pos = top.array[index];
+
+        lbulb_count = (
+                (p->data[(pos.line)*width + pos.column - 1] == lusq_lbulb) +
+                (p->data[(pos.line)*width + pos.column + 1] == lusq_lbulb) +
+                (p->data[(pos.line+1)*width + pos.column] == lusq_lbulb));
+
+        boolean = boolean && (lbulb_count == p->data[pos.line * width + pos.column]);
+    }
+
+    //Bord bas
+    for(index = 0; index < bottom.size && boolean ; index++)
+    {
+        pos = bottom.array[index];
+
+        lbulb_count = (
+                (p->data[(pos.line)*width + pos.column - 1] == lusq_lbulb) +
+                (p->data[(pos.line)*width + pos.column + 1] == lusq_lbulb) +
+                (p->data[(pos.line-1)*width + pos.column] == lusq_lbulb));
+
+        boolean = boolean && (lbulb_count == p->data[pos.line * width + pos.column]);
+    }
+
+    for(index = 0; index < center.size && boolean ; index++)
+    {
+        pos = center.array[index];
+
+        lbulb_count = (
+                (p->data[(pos.line)*width + pos.column - 1] == lusq_lbulb) +
+                (p->data[(pos.line)*width + pos.column + 1] == lusq_lbulb) +
+                (p->data[(pos.line-1)*width + pos.column] == lusq_lbulb) +
+                (p->data[(pos.line+1)*width + pos.column] == lusq_lbulb));
+        boolean = boolean && (lbulb_count == p->data[pos.line * width + pos.column]);
+    }
+
+    return boolean;
+}
+
+//Essaye la solution (délimité à la fin par un -1). Si à un moment, la solution coince, les ampoules placés
+//pour tester la solution sont enlevées.
+//Si la solution est possible, la fonction renvoie la taille de la solution
+//Si la solution échoue, la fonction renvoie 0
+int try_solution(lu_puzzle * p, position_array pa_empty, int * solution)
+{
+    int i = 0;
+    unsigned int width = p->width;
+    position pos;
+
+    if(solution[i] == -2) return 0;
+
+    while((solution[i] != -1) && (possible_to_light(p, pa_empty.array[solution[i]]) == 1))
+    {
+        pos = pa_empty.array[solution[i]];
+        p->data[pos.line * width + pos.column] = lusq_lbulb;
+        i++;
+    }
+
+    if(solution[i] != -1)
+    {
+        for(i = i-1 ; i >= 0 ; i--)
+        {
+            pos = pa_empty.array[solution[i]];
+            p->data[pos.line * width + pos.column] = lusq_empty;
+        }
+    }
+    return i;
+}
+
+//Remove the lightbulb of a solution from the puzzle.
+//La fonction revoie la taille de la solution
+int remove_solution(lu_puzzle * p, position_array pa_empty, int * solution)
+{
+    int i = 0;
+    unsigned int width = p->width;
+
+    while(solution[i] != -1)
+    {
+        pos = pa_empty.array[solution[i]];
+        p->data[pos.line * width + pos.column] = lusq_empty;
+        i++;
+    }
+    return i++;
+}
+
+
+void write_solutions(lu_puzzle * p, position_array * classes, int_array * classes_solutions, unsigned int nb_classes, unsigned int *sol_id, FILE *fd)
+{
+    int i = 0, ii = 0;
+    position pos;
+    int sol_id_local = 0;
+    int * pile = NULL, pile_size = 0;
+
+
+    int_array solutions;
+    position_array positions_empty;
+
+    if(*sol_id == 0)
+    {
+        puzzle_store(p,fd);
+        *sol_id = 1;
+        return;
+    }
+
+    pile = (int*) malloc(sizeof(int) * nb_classes);
+
+    solutions = classes_solutions[0];
+    positions_empty = classes[0];
+
+
+    while(solutions.array[i] != -2)
+    {
+        ii = i;
+        while(solutions.array[i] != -1)
+        {
+            pos = positions_empty.array[solutions.array[i]];
+            p->data[pos.line * p->width + pos.column] = lusq_lbulb;
+            i++;
+        }
+        i = ii;
+        if(verify_solution(p, left_, right_, top_, bottom_, center_))
+        {
+//            print_solution(positions_empty, &solutions.array[i]);
+            sol_id_local++;
+        }
+        while(solutions.array[i] != -1)
+        {
+            pos = positions_empty.array[solutions.array[i]];
+            p->data[pos.line * p->width + pos.column] = lusq_empty;
+            i++;
+        }
+        i++;
+    }
+    *sol_id = sol_id_local;
+}
+
+
+void solve_classes(lu_puzzle *p, position_array * pa_classes,
+        position_array * pa_impossible_classes, unsigned int pa_classes_size,
+        unsigned int *sol_id, FILE *fd) 
+{
+    unsigned int index = 0;
+    int_array * classes_solutions;
+
+    classes_solutions = (int_array*)malloc(sizeof(int_array) * pa_classes_size);
+    for(index = 0; index < pa_classes_size ; index++)
+    {
+        solve(p, pa_classes[index] , pa_impossible_classes[index], &classes_solutions[index], sol_id);
+    }
+    //FIXME Enlever les cases lusq_impossible (non nécessaire pour écrire les solutions, et le rendra la solution fausse).
+    return;
+    write_solutions(p, pa_classes, classes_solutions, pa_classes_size, sol_id, fd);
 }
 
 int solver_main(int argc, char **argv) {
@@ -1059,36 +1226,42 @@ int solver_main(int argc, char **argv) {
    lu_puzzle *p = puzzle_load(argv[1], 1);
 
    FILE *fd = puzzle_open_storage_file(argv[2], p->width, p->height);
-
-   wh_bufs *whbufs = new_wh_bufs(p->width, p->height);
-
    printf("Solving...\n");
 
    unsigned int nb_e = puzzle_count(p, lusq_empty);
    printf("Problem size = %u\n", nb_e);
 
-   unsigned int *forbiden = (unsigned int *)malloc(sizeof(*forbiden) * p->width * p->height);
-   memset(forbiden, 0, sizeof(*forbiden) * p->width * p->height);
-
    unsigned int sol_id = 0;
 
    //FIXME
-   position_array positions_empty;
-   pre_solve(p, &positions_empty,&nb_e);
+   position_array positions_empty,positions_impossible, left, right, top, bottom, center;
+   
+   pre_solve(p, &positions_empty, &positions_impossible, &left, &right, &top, &bottom, &center);
    puzzle_print(p);
+   left_ = left;
+   right_ = right;
+   top_ = top;
+   bottom_ = bottom;
+   center_ = center;
 
-   position_array *pa_array;
+   //int_array solutions;
+   //solve(p, positions_empty, positions_impossible, &solutions, &sol_id);
+
+   position_array *pa_array_empty;
+   position_array *pa_array_impossible;
    unsigned int pa_array_size;
-   classify_positions(p, &pa_array, &pa_array_size, positions_empty);
-   print_class(pa_array,pa_array_size);
-   printf("Problem size after heuristic = %u\n", nb_e);
-   solve_classes(p, pa_array, pa_array_size, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
-  //FIXME
-//   solve(p, whbufs, nb_e, forbiden,&positions_empty, &sol_id, fd);
+   classify_positions(p, &pa_array_empty, &pa_array_impossible, &pa_array_size, positions_empty);
+   print_class(pa_array_empty,pa_array_size);
+   printf("\n");
+   print_class(pa_array_impossible,pa_array_size);
+   
+   printf("Problem size after heuristic = %u\n", positions_impossible.size + positions_empty.size);
+
+   solve_classes(p, pa_array_empty, pa_array_impossible, pa_array_size, &sol_id, fd);
+   //FIXME
+
    printf("Found %u solutions\n", sol_id);
 
-   free(forbiden);
-   free_wh_bufs(whbufs);
    puzzle_destroy(p);
    fclose(fd);
 

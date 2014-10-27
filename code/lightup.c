@@ -315,6 +315,189 @@ __inline void puzzle_light_on(lu_puzzle *p, unsigned int x, unsigned int y)
    }
 }
 
+
+__inline void puzzle_light_on_with_bufs(lu_puzzle *p, unsigned int x, unsigned int y, char * wbuf, char * hbuf, int * empty_count)
+{
+   unsigned int width = p->width;
+   unsigned int height = p->height;
+   int empty_count_local = 0;
+   /*
+   if (p == NULL) {
+      fprintf(stderr, "Cannot find a light in an empty puzzle\n");
+      return;
+   }
+
+   if (x >= p->width || y >= p->height) {
+      fprintf(stderr, "Invalid coordinates %u %u\n", x, y);
+      return;
+   }
+   */
+
+   p->data[y * p->width + x] = lusq_lbulb;
+   empty_count_local++;
+
+   // éclairage dans les 4 directions
+
+   int x2, y2;
+
+   // on éclaire à gauche
+   for (x2 = (int) x - 1; x2 >= 0; --x2) {
+      int i = y * width + x2;
+
+      if (p->data[i] == lusq_enlighted) {
+         continue;
+      }
+
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
+         break;   // mur
+      }
+
+      wbuf[x2] = p->data[i];
+      p->data[i] = lusq_enlighted;      
+      empty_count_local++;
+   }
+
+   // à droite
+   for (x2 = x + 1; (unsigned int) x2 < width; ++x2) {
+      int i = y * width + x2;
+
+      if (p->data[i] == lusq_enlighted) {
+         continue;
+      }
+
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
+         break;   // mur
+      }
+
+      wbuf[x2] = p->data[i];
+      p->data[i] = lusq_enlighted;
+      empty_count_local++;
+   }
+
+   // en haut
+   for (y2 = (int) y - 1; y2 >= 0; --y2) {
+      int i = y2 * width + x;
+
+      if (p->data[i] == lusq_enlighted) {
+         continue;
+      }
+
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
+         break; // mur
+      }
+
+      hbuf[y2] = p->data[i];
+      p->data[i] = lusq_enlighted;
+      empty_count_local++;
+   }
+
+   // en bas
+   for (y2 = y + 1; (unsigned int) y2 < height; ++y2) {
+      int i = y2 * width + x;
+
+      if (p->data[i] == lusq_enlighted) {
+         continue;
+      }
+
+      if (p->data[i] != lusq_empty && p->data[i] != lusq_impossible) {
+         break; // mur
+      }
+
+      hbuf[y2] = p->data[i];
+      p->data[i] = lusq_enlighted;
+      empty_count_local++;
+   }
+   *empty_count = *empty_count - empty_count_local;
+}
+
+
+__inline void puzzle_light_off_with_bufs(lu_puzzle *p, unsigned int x, unsigned int y,char * wbuf, char * hbuf, int * empty_count)
+{
+   int width = p->width;
+   int height = p->height;
+   int empty_count_local = 0;
+
+   int x2, y2;
+/*
+   if (p == NULL) {
+      fprintf(stderr, "Cannot find a light in an empty puzzle\n");
+      return;
+   }
+
+   if (x >= p->width || y >= p->height) {
+      fprintf(stderr, "Invalid coordinates %u %u\n", x, y);
+      return;
+   }
+
+   if(p->data[y * p->width + x] != lusq_lbulb)
+   {
+       fprintf(stderr, "A lightbulb is not on at this case\n");
+       return;
+   }
+   */
+
+   p->data[y * p->width + x] = lusq_empty;
+   empty_count_local++;
+   
+   // vers la droite
+   for (x2 = x + 1; x2 < width; ++x2) {
+      int i = y * width + x2;
+
+      if (p->data[i] <= lusq_block_any) {
+         break;   // mur
+      }
+      if(wbuf[x2] > 0)
+      {
+          p->data[i] = wbuf[x2];
+          empty_count_local++;
+      }
+   }
+   // vers la gauche
+   for (x2 = (int) x - 1; x2 >= 0; --x2) {
+      int i = y * width + x2;
+
+      if (p->data[i] <= lusq_block_any) {
+         break;   // mur
+      }
+      if(wbuf[x2] > 0)
+      {
+          p->data[i] = wbuf[x2];
+          empty_count_local++;
+      }
+   }
+   // vers le bas
+   for (y2 = y + 1; y2 < height; ++y2) {
+      int i = y2 * width + x;
+
+      if (p->data[i] <= lusq_block_any) {
+         break;   // mur
+      }
+      if(hbuf[y2] > 0)
+      {
+          p->data[i] = hbuf[y2];
+          empty_count_local++;
+      }
+   }
+   // vers le haut
+   for (y2 = (int) y - 1; y2 >= 0; --y2) {
+      int i = y2 * width + x;
+
+      if (p->data[i] <= lusq_block_any) {
+         break;   // mur
+      }
+      if(hbuf[y2] > 0)
+      {
+          p->data[i] = hbuf[y2];
+          empty_count_local++;
+      }
+   }
+   *empty_count = *empty_count + empty_count_local;
+}
+
+
+
+
+
 void puzzle_lights_off(lu_puzzle *p) {
    unsigned int x, y;
 

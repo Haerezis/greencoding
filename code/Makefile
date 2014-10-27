@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -fopenmp
-LDFLAGS=-fopenmp
+CFLAGS=-Wall -Wextra -Wno-unused-function
+LDFLAGS=-fopenmp -g
 
 .PHONY: all clean distclean
 
