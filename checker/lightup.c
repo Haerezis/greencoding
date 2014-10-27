@@ -349,7 +349,6 @@ unsigned int puzzle_count(const lu_puzzle *p, lu_square tp) {
 
 
 unsigned int puzzle_check(const lu_puzzle *ref, lu_puzzle *sol) {
-
    if (sol == NULL) {
       fprintf(stderr, "Cannot check an empty solution\n");
       return 0;
@@ -364,6 +363,10 @@ unsigned int puzzle_check(const lu_puzzle *ref, lu_puzzle *sol) {
       fprintf(stderr, "The solution size does not match the reference puzzle ones\n");
       return 0;
    }
+
+   // Fix Alex/Jp: 16/10/2014: remove and replace enlightment in the puzzle
+   puzzle_lights_off (sol);
+   puzzle_lights_on (sol);
 
    unsigned int x, y, i;
    for (y = 0; y < sol->height; ++y) {

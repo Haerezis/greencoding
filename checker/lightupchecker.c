@@ -41,6 +41,8 @@ int checker_main(int argc, char **argv) {
    lu_puzzle *sol;
 
    fd = puzzle_open_sol_file(argv[2], &width, &height);
+   if(fd==NULL)
+      return 0;
    while ((sol = puzzle_load_next_sol(fd, width, height))) {
       ++i;
 
@@ -85,16 +87,21 @@ int checker_main(int argc, char **argv) {
 
    free_table();
    puzzle_destroy(ref);
-
-   unsigned int nb_known_sols = (ftell(fd)-2*sizeof(unsigned int))/(width*height*sizeof(lu_square));
    fclose(fd);
+
+   FILE *fd1 = puzzle_open_sol_file(argv[3], &width, &height);
+   if(fd1==NULL)
+      return 0;
+   fseek(fd1,0,SEEK_END);
+   unsigned int nb_known_sols = (ftell(fd1)-2*sizeof(unsigned int))/(width*height*sizeof(lu_square));
+   fclose(fd1);
 
    if (i < nb_known_sols) {
       printf("Invalid number of solutions: expecting %d but %d given\n",
              nb_known_sols, i);
       return 0;
    } else if (i > nb_known_sols) {
-      printf("You found more valid solutions than the reference implementation, please notify an organizer\n");
+      printf("You found more (%d expected) valid solutions than the reference implementation on the problem \"%s\"\n", nb_known_sols, argv [1]);
       return 0;
    }
 
