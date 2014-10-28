@@ -155,3 +155,43 @@ void add_to_int_array(int_array * ia, int p)
     ia->array[ia->size] = p;
     ia->size++;
 }
+
+
+void disable_cpu(unsigned int number_cpu_left)
+{
+    unsigned int i = 0, num_cpu_online = 0;
+    FILE * fd = NULL;
+    char buffer[255] = {0};
+
+    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
+    for(i=0 ; i<number_cpu_left && i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        fd = fopen(buffer,"w");
+        fprintf(fd,"1");
+        fclose(fd);
+    }
+    for(i=number_cpu_left ; i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        fd = fopen(buffer,"w");
+        fprintf(fd,"0");
+        fclose(fd);
+    }
+}
+
+void enable_all_cpu()
+{
+    unsigned int i = 0, num_cpu_online = 0;
+    FILE * fd = NULL;
+    char buffer[255] = {0};
+
+    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
+    for(i=0 ; i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        fd = fopen(buffer,"w");
+        fprintf(fd,"1");
+        fclose(fd);
+    }
+}

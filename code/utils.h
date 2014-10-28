@@ -2,6 +2,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <dirent.h>
+
 #include "lightup.h"
 
 #define SIZE 1024
@@ -55,3 +58,6 @@ __inline int wall_saturated(const lu_puzzle *p, unsigned int x,
 __inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
    unsigned int y);
 
+
+void disable_cpu(unsigned int number_cpu_left);
+void enable_all_cpu();

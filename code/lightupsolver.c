@@ -17,14 +17,12 @@ int solver_main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
 
+   disable_cpu(2);//XXX
+
    printf("Loading %s for solving...\n", argv[1]);
    lu_puzzle *p = puzzle_load(argv[1], 1);
 
    FILE *fd = puzzle_open_storage_file(argv[2], p->width, p->height);
-   if(setvbuf(fd, NULL, _IOFBF, p->width * p->height * 165888) == 0)
-   {
-       printf("New buffer allocated\n");
-   }
    printf("Solving...\n");
 
    unsigned int nb_e = puzzle_count(p, lusq_empty);
