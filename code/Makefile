@@ -13,7 +13,7 @@ release: code
 debug: CFLAGS += -DDEBUG -g
 debug: code
 
-code: lightupsolver.o lightup.o utils.o
+code: lightupsolver.o lightup.o utils.o whbufs.o heuristics.o solve.o
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.c %.h

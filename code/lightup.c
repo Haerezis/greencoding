@@ -762,3 +762,66 @@ unsigned int puzzle_eq(const lu_puzzle *ref, const lu_puzzle *cmp) {
 
    return 1;
 }
+
+
+
+__inline int wall_saturated(const lu_puzzle *p, unsigned int x,
+   unsigned int y)
+{
+   unsigned int idx = y * p->width + x;
+
+   // la case ne spécifie pas de contrainte particulière
+   if ((p->data[idx] > lusq_4) || (x>=p->width) || (y>=p->height)) {
+      return 0;
+   }
+
+   // compte les ampoules autour
+   unsigned int lbcount = 0;
+   if (x >= 1) {
+      lbcount += p->data[idx - 1] == lusq_lbulb;
+   }
+   if (x < p->width - 1) {
+      lbcount += p->data[idx + 1] == lusq_lbulb;
+   }
+   if (y >= 1) {
+      lbcount += p->data[idx - p->width] == lusq_lbulb;
+   }
+   if (y < p->height - 1) {
+      lbcount += p->data[idx + p->width] == lusq_lbulb;
+   }
+
+   return lbcount >= (unsigned int) p->data[idx];
+}
+
+
+__inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
+   unsigned int y)
+{
+   unsigned int idx = y * p->width + x;
+
+   // pas une contrainte
+   if (p->data[idx] > lusq_4) {
+      return 1;
+   }
+
+   // compte les ampoules et les cases vides
+   unsigned int lbcount = 0, ecount = 0;
+   if (x >= 1) {
+      ecount += p->data[idx - 1] == lusq_empty;
+      lbcount += p->data[idx - 1] == lusq_lbulb;
+   }
+   if (x < p->width - 1) {
+      ecount += p->data[idx + 1] == lusq_empty;
+      lbcount += p->data[idx + 1] == lusq_lbulb;
+   }
+   if (y >= 1) {
+      ecount += p->data[idx - p->width] == lusq_empty;
+      lbcount += p->data[idx - p->width] == lusq_lbulb;
+   }
+   if (y < p->height - 1) {
+      ecount += p->data[idx + p->width] == lusq_empty;
+      lbcount += p->data[idx + p->width] == lusq_lbulb;
+   }
+
+   return ecount + lbcount >= (unsigned int) p->data[idx];
+}
