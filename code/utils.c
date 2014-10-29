@@ -46,14 +46,14 @@ unsigned int number_of_lightbulb_possible(lu_puzzle *p, unsigned int line, unsig
     position lb_pos_local[2] = {{0,0},{0,0}};
 
     
-    current_status = p->data[(line+1) * width + column];
+    current_status = lusq_block_any+1;
     for(l = line + 1;(current_status > lusq_block_any) && (count < 2) && (l < height) ; l++)
     {
         current_status = p->data[l * width + column];
         lb_pos_local[count == 0] = (position){l,column};
         count+= current_status == lusq_empty;
     }
-    current_status = p->data[(line-1) * width + column];
+    current_status = lusq_block_any+1;
     for(l = line - 1;(current_status > lusq_block_any) && (count < 2) && (l >= 0) ; l--)
     {
         current_status = p->data[l * width + column];
@@ -61,14 +61,14 @@ unsigned int number_of_lightbulb_possible(lu_puzzle *p, unsigned int line, unsig
         count+= current_status == lusq_empty;
     }
 
-    current_status = p->data[line * width + column + 1];
+    current_status = lusq_block_any+1;
     for(c = column + 1; (current_status > lusq_block_any) && (count < 2) && (c < width) ; c++)
     {
         current_status = p->data[line * width + c];
         lb_pos_local[count == 0] = (position){line,c};
         count+= current_status == lusq_empty;
     }
-    current_status = p->data[line * width + column - 1];   
+    current_status = lusq_block_any+1;   
     for(c = column - 1; (current_status > lusq_block_any) && (count < 2) && (c >= 0) ; c--)
     {
         current_status = p->data[line * width + c];
@@ -89,26 +89,26 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
     unsigned int count = 0;
     unsigned char current_status = 0;
 
-    current_status = p->data[(line+1) * width + column];
+    current_status = lusq_block_any+1;
     for(l = line + 1;(current_status > lusq_block_any) && (count < 1) && (l < height) ; l++)
     {
         current_status = p->data[l * width + column];
         count+= current_status == lusq_empty;
     }
-    current_status = p->data[(line-1) * width + column];
+    current_status = lusq_block_any+1;
     for(l = line - 1;(current_status > lusq_block_any) && (count < 1) && (l >= 0) ; l--)
     {
         current_status = p->data[l * width + column];
         count+= current_status == lusq_empty;
     }
 
-    current_status = p->data[line * width + column + 1];
+    current_status = lusq_block_any+1;
     for(c = column + 1; (current_status > lusq_block_any) && (count < 1) && (c < width) ; c++)
     {
         current_status = p->data[line * width + c];
         count+= current_status == lusq_empty;
     }
-    current_status = p->data[line * width + column - 1];   
+    current_status = lusq_block_any+1;
     for(c = column - 1; (current_status > lusq_block_any) && (count < 1) && (c >= 0) ; c--)
     {
         current_status = p->data[line * width + c];
