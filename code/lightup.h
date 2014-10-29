@@ -221,8 +221,8 @@ unsigned int puzzle_eq(const lu_puzzle *ref, const lu_puzzle *cmp);
  * est imposé par la case. Renvoie 0 si la case n'est pas une case à contrainte
  * ou si il n'y a pas assez d'ampoule autour de la case.
  */
-__inline int wall_saturated(const lu_puzzle *p, unsigned int x,
-   unsigned int y);
+__inline int wall_saturated(const lu_puzzle *p, int x,
+   int y);
 
 /*!
  * Vérifie s'il est possible de respecter la contrainte imposée par un mur,

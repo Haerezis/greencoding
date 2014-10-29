@@ -714,7 +714,7 @@ unsigned int puzzle_check(const lu_puzzle *ref, lu_puzzle *sol) {
 
 // hash fnv
 unsigned int puzzle_hash(const lu_puzzle *p) {
-   unsigned int res = 2166136261;
+   unsigned int res = 2166136261U;//XXX remove U? (I added the U to no have a warning at compilation)
    unsigned int i;
 
    if (p == NULL) {
@@ -765,13 +765,13 @@ unsigned int puzzle_eq(const lu_puzzle *ref, const lu_puzzle *cmp) {
 
 
 
-__inline int wall_saturated(const lu_puzzle *p, unsigned int x,
-   unsigned int y)
+__inline int wall_saturated(const lu_puzzle *p, int x,
+   int y)
 {
    unsigned int idx = y * p->width + x;
 
    // la case ne spécifie pas de contrainte particulière
-   if ((p->data[idx] > lusq_4) || (x>=p->width) || (y>=p->height)) {
+   if ((x>=(int)p->width) || (y>=(int)p->height) || (x<0) || (y<0) || (p->data[idx] > lusq_4)) {
       return 0;
    }
 
@@ -780,13 +780,13 @@ __inline int wall_saturated(const lu_puzzle *p, unsigned int x,
    if (x >= 1) {
       lbcount += p->data[idx - 1] == lusq_lbulb;
    }
-   if (x < p->width - 1) {
+   if (x < (int)p->width - 1) {
       lbcount += p->data[idx + 1] == lusq_lbulb;
    }
    if (y >= 1) {
       lbcount += p->data[idx - p->width] == lusq_lbulb;
    }
-   if (y < p->height - 1) {
+   if (y < (int)p->height - 1) {
       lbcount += p->data[idx + p->width] == lusq_lbulb;
    }
 
@@ -800,7 +800,7 @@ __inline unsigned int wall_clear(const lu_puzzle *p, unsigned int x,
    unsigned int idx = y * p->width + x;
 
    // pas une contrainte
-   if (p->data[idx] > lusq_4) {
+   if ((p->data[idx] > lusq_4)) {
       return 1;
    }
 

@@ -7,6 +7,8 @@
 #include "utils.h"
 #include "heuristics.h"
 #include "solve.h"
+#include "libdvfs.h"
+
 
 extern position_array left_, right_ ,top_ ,bottom_,center_;
 
@@ -17,7 +19,10 @@ int solver_main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
 
-   disable_cpu(2);//XXX
+    dvfs_ctx * ctx = NULL;
+    dvfs_start(&ctx, 1);
+    slowdown_cpu(ctx, 1);//XXX
+
 
    printf("Loading %s for solving...\n", argv[1]);
    lu_puzzle *p = puzzle_load(argv[1], 1);
@@ -36,7 +41,6 @@ int solver_main(int argc, char **argv) {
    
    pre_solve(p, &positions_empty, &positions_impossible, &left, &right, &top, &bottom, &center);
    //puzzle_print(p);
-   //FIXME
    left_ = left;
    right_ = right;
    top_ = top;
@@ -44,10 +48,10 @@ int solver_main(int argc, char **argv) {
    center_ = center;
 
    classify_positions(p, &pa_array_empty, &pa_array_impossible, &pa_array_size, positions_empty);
-   //print_class(pa_array_empty,pa_array_size);
-   //printf("\n");
-   //print_class(pa_array_impossible,pa_array_size);
-   
+   /*print_class(pa_array_empty,pa_array_size);
+   printf("\n");
+   print_class(pa_array_impossible,pa_array_size);
+   */
    printf("Problem size after heuristic = %u\n", positions_impossible.size + positions_empty.size);
 
    solve_classes(p, pa_array_empty, pa_array_impossible, pa_array_size, &sol_id, fd);
@@ -56,6 +60,8 @@ int solver_main(int argc, char **argv) {
 
    puzzle_destroy(p);
    fclose(fd);
+
+   dvfs_stop(ctx);
 
    return EXIT_SUCCESS;
 }

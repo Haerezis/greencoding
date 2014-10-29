@@ -1,5 +1,5 @@
 #include "solve.h"
-
+#include <time.h>
 position_array left_, right_ ,top_ ,bottom_,center_;
 
 void print_solutions(position_array pa_empty, int * solutions)

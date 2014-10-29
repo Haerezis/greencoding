@@ -97,32 +97,38 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
     unsigned int count = 0;
     unsigned char current_status = 0;
 
-    for(l = line + 1; l < height ; l++)
+    current_status = p->data[(line+1) * width + column];
+    l = line + 1;
+    while((current_status > lusq_block_any) && (l < height))
     {
+        count+= current_status == lusq_empty;
+        ++l;
         current_status = p->data[l * width + column];
-        if(current_status == lusq_block_any) break;
-        count+= current_status == lusq_empty;
     }
-    for(l = line - 1; l >= 0 ; l--)
+    current_status = p->data[(line-1) * width + column];
+    l = line - 1;
+    while((current_status > lusq_block_any) && (l >= 0))
     {
+        count+= current_status == lusq_empty;
+        --l;
         current_status = p->data[l * width + column];
-        if(current_status <= lusq_block_any) break;
-        count+= current_status == lusq_empty;
     }
-
-    for(c = column + 1; c < width ; c++)
+    current_status = p->data[line * width + column + 1];
+    c = column + 1;
+    while((current_status > lusq_block_any) && (c < width))
     {
-        current_status = p->data[line * width + c];
-        if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
+        ++c;
+        current_status = p->data[line * width + c];
     }
-    for(c = column - 1; c >= 0 ; c--)
+    current_status = p->data[line * width + column - 1];
+    c = column - 1;
+    while((current_status > lusq_block_any) && (c >= 0))
     {
-        current_status = p->data[line * width + c];
-        if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
+        --c;
+        current_status = p->data[line * width + c];
     }
-
     return count == 0;
 }
 
@@ -157,41 +163,56 @@ void add_to_int_array(int_array * ia, int p)
 }
 
 
-void disable_cpu(unsigned int number_cpu_left)
-{
-    unsigned int i = 0, num_cpu_online = 0;
-    FILE * fd = NULL;
-    char buffer[255] = {0};
+#define CHECK_ERROR(ctx,fct,message) { int result = fct; \
+    if (result != DVFS_SUCCESS) { \
+        printf(message" (%s).\n",dvfs_strerror(result)); \
+        dvfs_stop(ctx); \
+        exit(EXIT_FAILURE); \
+    }}
 
-    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
-    for(i=0 ; i<number_cpu_left && i<num_cpu_online ; i++)
-    {
-        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
-        fd = fopen(buffer,"w");
-        fprintf(fd,"1");
-        fclose(fd);
-    }
-    for(i=number_cpu_left ; i<num_cpu_online ; i++)
-    {
-        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
-        fd = fopen(buffer,"w");
-        fprintf(fd,"0");
-        fclose(fd);
-    }
+static int gettid()
+{
+#ifdef SYS_gettid
+    return syscall(SYS_gettid);
+#else
+#error "SYS_gettid unavailable on this system"
+#endif
 }
 
-void enable_all_cpu()
+void slowdown_cpu(dvfs_ctx * ctx, unsigned int number_cpu_left)
 {
-    unsigned int i = 0, num_cpu_online = 0;
-    FILE * fd = NULL;
-    char buffer[255] = {0};
+    unsigned int i = 0;
+    int id = 0;
+    unsigned int freq;
+    unsigned int nb_core = sysconf( _SC_NPROCESSORS_ONLN);
+    cpu_set_t cpu_set;
+    const dvfs_core * core;
 
-    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
-    for(i=0 ; i<num_cpu_online ; i++)
+    CHECK_ERROR(ctx,dvfs_set_gov(ctx, "userspace"),"Unable to set governor");
+
+    for(i = 0; i < number_cpu_left ; i++)
     {
-        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
-        fd = fopen(buffer,"w");
-        fprintf(fd,"1");
-        fclose(fd);
+        CHECK_ERROR(ctx,dvfs_get_core(ctx, &core, 0),"Get core");
+        CHECK_ERROR(ctx,dvfs_core_set_freq(core , core->freqs[core->nb_freqs-1]),"Set highest freqs");
+    }
+    for(i = number_cpu_left; i < nb_core ; i++)
+    {
+        CHECK_ERROR(ctx,dvfs_get_core(ctx, &core, i),"Get core");
+        CHECK_ERROR(ctx,dvfs_core_set_freq(core , core->freqs[0]),"Set lowest freqs");
+    }
+
+    CHECK_ERROR(ctx,dvfs_get_core(ctx, &core, 0),"Get core");
+    CHECK_ERROR(ctx,dvfs_core_get_current_freq(core, &freq), "Get current freq");
+    printf("Current frequence : %f MHz\n", (float)freq / 1000.0);
+
+
+    CPU_ZERO(&cpu_set);
+    CPU_SET(0, &cpu_set);
+    id = gettid(); //Maybe use getpid() instead?
+    if(sched_setaffinity(id, sizeof(cpu_set_t), &cpu_set) != 0)
+    {
+        //Error
+        perror( "sched_setaffinity" );
+        exit(EXIT_FAILURE);
     }
 }
