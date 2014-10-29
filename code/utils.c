@@ -90,37 +90,31 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
     unsigned char current_status = 0;
 
     current_status = p->data[(line+1) * width + column];
-    l = line + 1;
-    while((current_status > lusq_block_any) && (l < height))
+    for(l = line + 1;(current_status > lusq_block_any) && (count < 1) && (l < height) ; l++)
     {
-        count+= current_status == lusq_empty;
-        ++l;
         current_status = p->data[l * width + column];
+        count+= current_status == lusq_empty;
     }
     current_status = p->data[(line-1) * width + column];
-    l = line - 1;
-    while((current_status > lusq_block_any) && (l >= 0))
+    for(l = line - 1;(current_status > lusq_block_any) && (count < 1) && (l >= 0) ; l--)
     {
-        count+= current_status == lusq_empty;
-        --l;
         current_status = p->data[l * width + column];
+        count+= current_status == lusq_empty;
     }
+
     current_status = p->data[line * width + column + 1];
-    c = column + 1;
-    while((current_status > lusq_block_any) && (c < width))
+    for(c = column + 1; (current_status > lusq_block_any) && (count < 1) && (c < width) ; c++)
     {
-        count+= current_status == lusq_empty;
-        ++c;
         current_status = p->data[line * width + c];
+        count+= current_status == lusq_empty;
     }
-    current_status = p->data[line * width + column - 1];
-    c = column - 1;
-    while((current_status > lusq_block_any) && (c >= 0))
+    current_status = p->data[line * width + column - 1];   
+    for(c = column - 1; (current_status > lusq_block_any) && (count < 1) && (c >= 0) ; c--)
     {
-        count+= current_status == lusq_empty;
-        --c;
         current_status = p->data[line * width + c];
+        count+= current_status == lusq_empty;
     }
+
     return count == 0;
 }
 
