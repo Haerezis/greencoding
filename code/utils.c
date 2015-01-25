@@ -43,44 +43,52 @@ unsigned int number_of_lightbulb_possible(lu_puzzle *p, unsigned int line, unsig
     int l = 0, c = 0, width = p-> width, height = p->height;
     unsigned int count = 0;
     unsigned char current_status = 0;
-    position lb_pos_local[2] = {{0,0},{0,0}};
+    position lb_pos_local = {0,0};
 
-    
-    current_status = lusq_block_any+1;
-    for(l = line + 1;(current_status > lusq_block_any) && (count < 2) && (l < height) ; l++)
+    for(l = line + 1; l < height ; l++)
     {
         current_status = p->data[l * width + column];
-        lb_pos_local[count == 0] = (position){l,column};
-        count+= current_status == lusq_empty;
+        if(current_status <= lusq_block_any) break;
+        if(current_status == lusq_empty)
+        {
+            count++;
+            lb_pos_local = (position){l,column};
+        }
     }
-    current_status = lusq_block_any+1;
-    for(l = line - 1;(current_status > lusq_block_any) && (count < 2) && (l >= 0) ; l--)
+    for(l = line - 1; l >= 0 ; l--)
     {
         current_status = p->data[l * width + column];
-        lb_pos_local[count == 0] = (position){l,column};
-        count+= current_status == lusq_empty;
+        if(current_status <= lusq_block_any) break;
+        if(current_status == lusq_empty)
+        {
+            count++;
+            lb_pos_local = (position){l,column};
+        }
     }
 
-    current_status = lusq_block_any+1;
-    for(c = column + 1; (current_status > lusq_block_any) && (count < 2) && (c < width) ; c++)
+    for(c = column + 1; l < width ; c++)
     {
         current_status = p->data[line * width + c];
-        lb_pos_local[count == 0] = (position){line,c};
-        count+= current_status == lusq_empty;
+        if(current_status <= lusq_block_any) break;
+        if(current_status == lusq_empty)
+        {
+            count++;
+            lb_pos_local = (position){line,c};
+        }
     }
-    current_status = lusq_block_any+1;   
-    for(c = column - 1; (current_status > lusq_block_any) && (count < 2) && (c >= 0) ; c--)
+    for(c = column - 1; l >= 0 ; c--)
     {
         current_status = p->data[line * width + c];
-        lb_pos_local[count == 0] = (position){line,c};
-        count+= current_status == lusq_empty;
+        if(current_status <= lusq_block_any) break;
+        if(current_status == lusq_empty)
+        {
+            count++;
+            lb_pos_local = (position){line,c};
+        }
     }
 
-    //*lb_pos = lb_pos_local;
-    *lb_pos = lb_pos_local[1];
+    *lb_pos = lb_pos_local;
     return count;
-
-
 }
 
 char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
@@ -89,29 +97,29 @@ char is_alone(lu_puzzle *p, unsigned int line, unsigned int column)
     unsigned int count = 0;
     unsigned char current_status = 0;
 
-    current_status = lusq_block_any+1;
-    for(l = line + 1;(current_status > lusq_block_any) && (count < 1) && (l < height) ; l++)
+    for(l = line + 1; l < height ; l++)
     {
         current_status = p->data[l * width + column];
+        if(current_status == lusq_block_any) break;
         count+= current_status == lusq_empty;
     }
-    current_status = lusq_block_any+1;
-    for(l = line - 1;(current_status > lusq_block_any) && (count < 1) && (l >= 0) ; l--)
+    for(l = line - 1; l >= 0 ; l--)
     {
         current_status = p->data[l * width + column];
+        if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
     }
 
-    current_status = lusq_block_any+1;
-    for(c = column + 1; (current_status > lusq_block_any) && (count < 1) && (c < width) ; c++)
+    for(c = column + 1; c < width ; c++)
     {
         current_status = p->data[line * width + c];
+        if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
     }
-    current_status = lusq_block_any+1;
-    for(c = column - 1; (current_status > lusq_block_any) && (count < 1) && (c >= 0) ; c--)
+    for(c = column - 1; c >= 0 ; c--)
     {
         current_status = p->data[line * width + c];
+        if(current_status <= lusq_block_any) break;
         count+= current_status == lusq_empty;
     }
 
@@ -149,12 +157,44 @@ void add_to_int_array(int_array * ia, int p)
 }
 
 
-#define CHECK_ERROR(ctx,fct,message) { int result = fct; \
-    if (result != DVFS_SUCCESS) { \
-        printf(message" (%s).\n",dvfs_strerror(result)); \
-        dvfs_stop(ctx); \
-        exit(EXIT_FAILURE); \
-    }}
+void disable_cpu(unsigned int number_cpu_left)
+{
+    unsigned int i = 0, num_cpu_online = 0;
+    FILE * fd = NULL;
+    char buffer[255] = {0};
+
+    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
+    for(i=0 ; i<number_cpu_left && i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        if((fd = fopen(buffer,"w")) == NULL) continue;
+        fputc('1',fd);
+        fclose(fd);
+    }
+    for(i=number_cpu_left ; i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        if((fd = fopen(buffer,"w")) == NULL) continue;
+        fputc('0',fd);
+        fclose(fd);
+    }
+}
+
+void enable_all_cpu()
+{
+    unsigned int i = 0, num_cpu_online = 0;
+    FILE * fd = NULL;
+    char buffer[255] = {0};
+
+    num_cpu_online = sysconf( _SC_NPROCESSORS_ONLN );
+    for(i=0 ; i<num_cpu_online ; i++)
+    {
+        sprintf(buffer,"/sys/devices/system/cpu/cpu%u/online",i);
+        if((fd = fopen(buffer,"w")) == NULL) continue; 
+        fputc('1',fd);
+        fclose(fd);
+    }
+}
 
 static int gettid()
 {
@@ -164,6 +204,13 @@ static int gettid()
 #error "SYS_gettid unavailable on this system"
 #endif
 }
+
+#define CHECK_ERROR(ctx,fct,message) { int result = fct; \
+    if (result != DVFS_SUCCESS) { \
+        printf(message" (%s).\n",dvfs_strerror(result)); \
+        dvfs_stop(ctx); \
+        exit(EXIT_FAILURE); \
+    }}
 
 void slowdown_cpu(dvfs_ctx * ctx, unsigned int number_cpu_left)
 {
@@ -201,4 +248,11 @@ void slowdown_cpu(dvfs_ctx * ctx, unsigned int number_cpu_left)
         perror( "sched_setaffinity" );
         exit(EXIT_FAILURE);
     }
+}
+
+void slowdown(dvfs_ctx * ctx)
+{
+    const dvfs_core * core;    
+    CHECK_ERROR(ctx,dvfs_get_core(ctx, &core, 0),"Get core");
+    CHECK_ERROR(ctx,dvfs_core_set_freq(core , core->freqs[core->nb_freqs/2]),"Set highest freqs");
 }

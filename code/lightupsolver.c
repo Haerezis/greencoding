@@ -19,10 +19,10 @@ int solver_main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
 
+//    disable_cpu(2);//XXX
     dvfs_ctx * ctx = NULL;
     dvfs_start(&ctx, 1);
     slowdown_cpu(ctx, 1);//XXX
-
 
    printf("Loading %s for solving...\n", argv[1]);
    lu_puzzle *p = puzzle_load(argv[1], 1);
@@ -41,6 +41,7 @@ int solver_main(int argc, char **argv) {
    
    pre_solve(p, &positions_empty, &positions_impossible, &left, &right, &top, &bottom, &center);
    //puzzle_print(p);
+   //FIXME
    left_ = left;
    right_ = right;
    top_ = top;
@@ -58,9 +59,12 @@ int solver_main(int argc, char **argv) {
 
    printf("Found %u solutions\n", sol_id);
 
+   slowdown(ctx);
    puzzle_destroy(p);
    fclose(fd);
 
+   //printf("Number of core online : %ld\n", sysconf( _SC_NPROCESSORS_ONLN));   
+   //enable_all_cpu();
    dvfs_stop(ctx);
 
    return EXIT_SUCCESS;

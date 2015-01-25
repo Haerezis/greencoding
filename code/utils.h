@@ -1,13 +1,12 @@
 #pragma once
+#define _GNU_SOURCE             /* See feature_test_macros(7) */
 
-#define _GNU_SOURCE
-
+#include <sched.h>
+#include <syscall.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sched.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
+#include <dirent.h>
 
 #include "lightup.h"
 #include "libdvfs.h"
@@ -34,4 +33,7 @@ void delete_int_array(int_array * ia);
 void add_to_int_array(int_array * ia, int p);
 
 
+void disable_cpu(unsigned int number_cpu_left);
+void enable_all_cpu();
 void slowdown_cpu(dvfs_ctx * ctx, unsigned int number_cpu_left);
+void slowdown(dvfs_ctx * ctx);

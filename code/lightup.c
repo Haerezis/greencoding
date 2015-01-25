@@ -714,7 +714,7 @@ unsigned int puzzle_check(const lu_puzzle *ref, lu_puzzle *sol) {
 
 // hash fnv
 unsigned int puzzle_hash(const lu_puzzle *p) {
-   unsigned int res = 2166136261U;//XXX remove U? (I added the U to no have a warning at compilation)
+   unsigned int res = 2166136261;
    unsigned int i;
 
    if (p == NULL) {

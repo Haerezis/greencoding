@@ -6,12 +6,7 @@ LDFLAGS=-fopenmp -lpthread -lrt
 
 all: release
 
-debug: CFLAGS += -g -pg
-debug: LDFLAGS += -g -pg
-debug: code
-
 release: CFLAGS += -O3
-release: LDFLAGS += -O3
 release: code
 
 code: lightupsolver.o lightup.o utils.o whbufs.o heuristics.o solve.o dvfs_core.o dvfs_unit.o dvfs_context.o dvfs_error.o
@@ -21,7 +16,7 @@ code: lightupsolver.o lightup.o utils.o whbufs.o heuristics.o solve.o dvfs_core.
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o code
+	rm -f *.o code libdvfs.so
 
 archive:
 #	cd .. && tar czf code_upload.tar.gz code/*

@@ -1,5 +1,5 @@
 #include "solve.h"
-#include <time.h>
+
 position_array left_, right_ ,top_ ,bottom_,center_;
 
 void print_solutions(position_array pa_empty, int * solutions)
@@ -461,12 +461,17 @@ void solve_classes(lu_puzzle *p, position_array * pa_classes,
 {
     unsigned int index = 0;
     int_array * classes_solutions;
+    int nb_sol = 1;
 
     classes_solutions = (int_array*)malloc(sizeof(int_array) * pa_classes_size);
     for(index = 0; index < pa_classes_size ; index++)
     {
         solve(p, pa_classes[index] , pa_impossible_classes[index], &classes_solutions[index], sol_id);
+        nb_sol *= *sol_id;
     }
+    
+    char * buf = (char*)malloc(sizeof(char) * p->width * p->height * nb_sol);
+    setvbuf(fd, buf, _IOFBF, sizeof(char) * p->width * p->height * nb_sol);
 
     write_solutions(p, pa_classes, classes_solutions, pa_classes_size, sol_id, fd);
 }
